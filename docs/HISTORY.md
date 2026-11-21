@@ -283,3 +283,4 @@ Addressed external review feedback regarding schema introspection validation edg
 * Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
 * Result: 88 passed in 5.80s with 91% overall coverage (`db.py` 97%, `tools.py` 95%, `security.py` 93%, `prompts.py` 100%, `resources.py` 100%).
 * Local Python 3.10 Windows binary: Verified `list_tables`, `describe_table` on `audit_logs` and `products`, case-insensitive `USERS`, and query execution pass cleanly on SQLite 3.40.1.
+* GitHub Actions CI Verification: All 9 matrix jobs succeeded on commit `98f5f51` (Run ID `44960836150`) across Ubuntu and Windows runners (Python 3.10, 3.11, 3.12, 3.13) and the minimum dependency bound test (`mcp==1.22.0`).
