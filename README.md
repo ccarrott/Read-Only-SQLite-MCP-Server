@@ -1,6 +1,6 @@
 # Safe Read-Only SQLite Explorer MCP Server
 
-A safe, high-performance SQLite database inspection and exploration server built on the Model Context Protocol (MCP) using `FastMCP`.
+A safe SQLite database inspection and exploration server built on the Model Context Protocol (MCP) using `FastMCP`.
 
 Enables AI coding assistants and autonomous agents (such as Antigravity, Cursor, and Claude Desktop) to inspect schemas, execute analytical queries, and review data models with strict, multi-layer read-only guarantees.
 
@@ -12,15 +12,16 @@ To prevent accidental data corruption, unauthorized mutations, or Denial-of-Serv
 
 | Defense Layer | Mechanism | Protection Scope |
 | --- | --- | --- |
-| **Layer 1: Driver / OS** | URI Read-Only Mode (`mode=ro`, `uri=True`) | Blocks write operations at the SQLite VFS / OS file descriptor level. |
+| **Layer 1: Driver / OS** | Percent-Encoded URI Read-Only Mode (`mode=ro`, `uri=True`) | Blocks write operations at the SQLite VFS / OS file descriptor level. Uses RFC 3986 percent-encoding to prevent delimiter attacks via `#`, `?`, or `%` characters in paths. |
 | **Layer 2: Engine Authorizer** | C Authorizer Hook (`conn.set_authorizer`) | Denies `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `ATTACH`, and `PRAGMA` write actions directly inside the SQLite engine parser before query planning. |
 | **Layer 3: Pragma Enforcement** | `PRAGMA query_only = ON;` | Enforces query-only mode at the database engine level upon connection creation. |
 | **Layer 4: Query Sanitizer** | Leading Statement Validation | Enforces that queries strictly begin with `SELECT`, `EXPLAIN`, or `WITH`, and denies stacked or multi-statement query injections. |
 
 ### Additional Safeguards:
-* **Progress Handler Step Limit:** Automatically interrupts runaway queries (e.g., infinite recursive CTEs or unindexed Cartesian joins) exceeding virtual machine instruction limits.
+* **Progress Handler Step Limit:** Automatically interrupts runaway queries (e.g., infinite recursive CTEs or unindexed Cartesian joins) exceeding virtual machine instruction limits (`SQLITE_MAX_INSTRUCTIONS`, default 10,000,000).
 * **BLOB & Data Serialization Protection:** Formats raw binary data (`bytes`) as `<BLOB N bytes>` to prevent JSON-RPC serialization crashes (`TypeError`).
 * **Result Ceiling:** Automatically truncates text fields over 500 characters (`... [truncated]`) and enforces row ceilings (default 100, max 1000).
+* **Parameterized Schema Introspection:** Uses SQLite's table-valued PRAGMA functions (`pragma_table_info(?)`, `pragma_foreign_key_list(?)`, `pragma_index_list(?)`) with bound parameters to eliminate escaping issues on identifiers with apostrophes.
 
 ---
 
@@ -48,7 +49,7 @@ To prevent accidental data corruption, unauthorized mutations, or Denial-of-Serv
 ### Setup with `uv` (Recommended)
 ```bash
 # Clone the repository and navigate to the directory
-cd "sqlite mcp server"
+cd Read-Only-SQLite-MCP-Server
 
 # Create a virtual environment and install dependencies
 uv venv .venv

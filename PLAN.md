@@ -121,3 +121,11 @@ Using `from mcp.server.fastmcp import FastMCP`:
 - [x] Configure local `mcp_config.json` for Antigravity integration.
 - [x] Perform real-world verification via agent chat.
 - [x] Document final setup instructions in `README.md`.
+
+### Phase 6: Post-Review Hardening & Engine Precision
+- [x] Implement RFC 3986 URI percent-encoding via `Path.resolve().as_uri() + "?mode=ro"` in `db.py`.
+- [x] Switch schema introspection to parameterized table-valued PRAGMAs (`pragma_table_info(?)`, `pragma_foreign_key_list(?)`, `pragma_index_list(?)`, `pragma_index_info(?)`).
+- [x] Isolate instruction limiter state per query and expose `SQLITE_MAX_INSTRUCTIONS` configuration.
+- [x] Refine `pyproject.toml` dependency bound to `mcp>=1.3.0,<2.0.0` and add `pytest-cov`.
+- [x] Add unit tests for special characters in paths, apostrophe-containing identifiers, and limiter isolation.
+- [x] Update `GEMINI.md` with URI encoding, table-valued PRAGMA, and claims discipline rules.

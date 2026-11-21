@@ -23,6 +23,15 @@
 * **Sanitize Output Types:** Never assume database cells contain clean UTF-8 strings. Safely handle binary `bytes` (BLOBs), `None` values, and long text fields before serializing to JSON.
 * **Defensive Exception Handling:** Catch `sqlite3.Error` gracefully and return clean error messages to the client so the model can self-correct bad SQL queries.
 
+### 2.4 SQLite Engine & Path Best Practices
+* **Percent-Encode SQLite URIs:** Always construct SQLite URI paths using `Path.resolve().as_uri() + "?mode=ro"`. Never assume file paths are free of `#`, `?`, or `%` characters that break naive string interpolation.
+* **Prefer Table-Valued PRAGMA Functions:** Use parameterized queries against SQLite's table-valued PRAGMA functions (e.g., `SELECT * FROM pragma_table_info(?);`, `pragma_foreign_key_list(?)`) instead of string-interpolated PRAGMA statements. This natively handles table names with apostrophes or special characters.
+* **Instruction Limits vs. Timeouts:** Treat SQLite progress handlers as virtual machine instruction step limiters, not wall-clock timeouts. Keep instruction limiter state isolated per query execution and document them accurately.
+
+### 2.5 Documentation & Claims Rigor
+* **Zero Speculative Metrics:** Never claim "100% test coverage" or "zero memory leaks" unless verified by automated tooling (e.g., `pytest-cov`, `tracemalloc`).
+* **Calm Open-Source Tone:** Keep READMEs and documentation grounded and factual. Avoid marketing adjectives ("high-performance", "bulletproof") unless backed by published benchmarks.
+
 ---
 
 ## 3. Gemini 3.8 Flash Execution & Verification Discipline

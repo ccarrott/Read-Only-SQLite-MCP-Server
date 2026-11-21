@@ -179,3 +179,63 @@ class TestDatabaseManagerExecution:
         assert "## Table: `orders`" in schema_md
         assert "## View: `order_summary`" in schema_md
         assert "| Name | Type | Not Null | Default | PK |" in schema_md
+
+    def test_uri_encoding_with_special_characters(self, tmp_path: Path) -> None:
+        # Create a database with #, %, and spaces in the path
+        special_dir = tmp_path / "folder#with%special chars!"
+        special_dir.mkdir(parents=True, exist_ok=True)
+        db_file = special_dir / "test#database%data.db"
+
+        conn = sqlite3.connect(str(db_file))
+        conn.execute("CREATE TABLE sample (id INT);")
+        conn.execute("INSERT INTO sample VALUES (42);")
+        conn.commit()
+        conn.close()
+
+        mgr = DatabaseManager(db_file)
+        res = mgr.execute_query("SELECT id FROM sample;")
+        assert res["rows"][0][0] == 42
+
+        # Verify Layer 1 (mode=ro) is still enforced and wasn't dropped by '#' splitting
+        ro_conn = mgr.get_connection()
+        try:
+            with pytest.raises((sqlite3.OperationalError, sqlite3.DatabaseError)) as exc_info:
+                ro_conn.execute("INSERT INTO sample VALUES (99);")
+            assert "readonly" in str(exc_info.value).lower() or "not authorized" in str(exc_info.value).lower()
+        finally:
+            ro_conn.close()
+
+    def test_describe_table_with_apostrophe(self, sample_db_path: Path) -> None:
+        conn = sqlite3.connect(str(sample_db_path))
+        conn.execute('CREATE TABLE "it\'s_a_table" (id INTEGER PRIMARY KEY, note TEXT);')
+        conn.execute('CREATE INDEX "idx_it\'s_note" ON "it\'s_a_table"(note);')
+        conn.commit()
+        conn.close()
+
+        mgr = DatabaseManager(sample_db_path)
+        desc = mgr.describe_table("it's_a_table")
+        assert desc["table_name"] == "it's_a_table"
+        col_names = [c["name"] for c in desc["columns"]]
+        assert "id" in col_names
+        assert "note" in col_names
+        idx_names = [idx["name"] for idx in desc["indexes"]]
+        assert "idx_it's_note" in idx_names
+
+    def test_limiter_isolation_between_operations(self, db_manager: DatabaseManager) -> None:
+        # Running list_tables and describe_table repeatedly should not exhaust query limiter
+        for _ in range(20):
+            db_manager.list_tables()
+            db_manager.describe_table("users")
+
+        # Query execution still has its full dedicated instruction budget
+        res = db_manager.execute_query("SELECT count(*) FROM users;")
+        assert res["row_count"] == 1
+
+    def test_configurable_instruction_limit_via_env(
+        self, sample_db_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SQLITE_MAX_INSTRUCTIONS", "20000000")
+        # Re-import or construct with env default
+        from sqlite_mcp.db import DatabaseManager as FreshManager
+        mgr = FreshManager(sample_db_path)
+        assert mgr.max_instructions >= 10_000_000

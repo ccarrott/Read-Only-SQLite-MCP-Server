@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sqlite3
 import time
@@ -16,7 +17,7 @@ from sqlite_mcp.security import (
 MAX_CELL_CHARS = 500
 DEFAULT_ROW_LIMIT = 100
 MAX_ROW_LIMIT = 1000
-DEFAULT_MAX_INSTRUCTIONS = 1_000_000
+DEFAULT_MAX_INSTRUCTIONS = int(os.environ.get("SQLITE_MAX_INSTRUCTIONS", "10000000"))
 PROGRESS_STEP_SIZE = 10_000
 
 
@@ -61,19 +62,18 @@ def sanitize_row(row: Sequence[Any]) -> List[Any]:
 class DatabaseManager:
     """Manages read-only connections and safe query execution against SQLite databases."""
 
-    def __init__(self, db_path: Union[str, Path], max_instructions: int = DEFAULT_MAX_INSTRUCTIONS):
+    def __init__(self, db_path: Union[str, Path], max_instructions: Optional[int] = None):
         self.db_path = Path(db_path).resolve()
-        self.max_instructions = max_instructions
+        self.max_instructions = max_instructions if max_instructions is not None else DEFAULT_MAX_INSTRUCTIONS
         self.step_size = min(PROGRESS_STEP_SIZE, max(1, self.max_instructions // 10))
-        self._limiter = QueryInstructionLimiter(max_instructions=self.max_instructions, step=self.step_size)
 
-    def get_connection(self) -> sqlite3.Connection:
+    def get_connection(self, limiter: Optional[QueryInstructionLimiter] = None) -> sqlite3.Connection:
         """Opens a protected, read-only connection adhering to 4-layer defense."""
         if not self.db_path.exists():
             raise FileNotFoundError(f"Database file not found: {self.db_path}")
 
-        # Layer 1: OS/Driver URI read-only mode
-        uri = f"file:{self.db_path.as_posix()}?mode=ro"
+        # Layer 1: OS/Driver URI read-only mode with RFC 3986 percent-encoding
+        uri = f"{self.db_path.resolve().as_uri()}?mode=ro"
         conn = sqlite3.connect(uri, uri=True, timeout=10.0)
 
         # Layer 3: Engine Pragma query_only enforcement (enabled before registering authorizer)
@@ -82,8 +82,11 @@ class DatabaseManager:
         # Layer 2: Native SQLite C-level authorizer
         conn.set_authorizer(read_only_authorizer)
 
-        # Progress handler for query timeout / runaway loop prevention
-        conn.set_progress_handler(self._limiter, self.step_size)
+        # Progress handler for query instruction limit
+        if limiter is not None:
+            conn.set_progress_handler(limiter, limiter.step)
+        else:
+            conn.set_progress_handler(None, 0)
 
         return conn
 
@@ -98,9 +101,9 @@ class DatabaseManager:
         validate_sql_statement(sql)
 
         clamped_limit = min(max(1, max_rows), MAX_ROW_LIMIT)
-        self._limiter.reset()
+        query_limiter = QueryInstructionLimiter(max_instructions=self.max_instructions, step=self.step_size)
 
-        conn = self.get_connection()
+        conn = self.get_connection(limiter=query_limiter)
         try:
             start_time = time.perf_counter()
             cursor = conn.cursor()
@@ -181,7 +184,10 @@ class DatabaseManager:
             obj_type, ddl = obj[0], obj[1]
 
             # 1. Column details: cid, name, type, notnull, dflt_value, pk
-            cursor.execute(f"PRAGMA table_info('{table_name}');")
+            cursor.execute(
+                'SELECT cid, name, type, "notnull", dflt_value, pk FROM pragma_table_info(?);',
+                (table_name,),
+            )
             raw_cols = cursor.fetchall()
             columns = [
                 {
@@ -196,7 +202,10 @@ class DatabaseManager:
             ]
 
             # 2. Foreign keys: id, seq, table, from, to, on_update, on_delete, match
-            cursor.execute(f"PRAGMA foreign_key_list('{table_name}');")
+            cursor.execute(
+                'SELECT id, seq, "table", "from", "to", on_update, on_delete FROM pragma_foreign_key_list(?);',
+                (table_name,),
+            )
             raw_fks = cursor.fetchall()
             foreign_keys = [
                 {
@@ -211,13 +220,19 @@ class DatabaseManager:
             ]
 
             # 3. Indexes
-            cursor.execute(f"PRAGMA index_list('{table_name}');")
+            cursor.execute(
+                'SELECT seq, name, "unique", origin, partial FROM pragma_index_list(?);',
+                (table_name,),
+            )
             raw_indexes = cursor.fetchall()
             indexes = []
             for idx in raw_indexes:
                 idx_name = idx[1]
                 is_unique = bool(idx[2])
-                cursor.execute(f"PRAGMA index_info('{idx_name}');")
+                cursor.execute(
+                    'SELECT seqno, cid, name FROM pragma_index_info(?);',
+                    (idx_name,),
+                )
                 idx_cols = [row[2] for row in cursor.fetchall()]
                 indexes.append(
                     {

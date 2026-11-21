@@ -53,3 +53,15 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * `README.md` with execution steps.
   * `TESTING.md` verifying real agent operations.
 * **Completion Criteria:** Antigravity agent connects, discovers tools/resources, inspects a sample SQLite database, and answers user queries cleanly.
+
+---
+
+## Milestone 5: Post-Review Hardening & Open-Source Maintenance
+* **Goal:** Address external review findings, harden edge cases, and ensure open-source precision.
+* **Deliverables:**
+  * URI percent-encoding via `Path.resolve().as_uri() + "?mode=ro"`.
+  * Parameterized table-valued PRAGMA functions (`pragma_table_info(?)`, etc.) handling special-character and apostrophe identifiers.
+  * Isolated per-query instruction limiters and configurable analytical budget (`SQLITE_MAX_INSTRUCTIONS`).
+  * Dependency bound refinement (`mcp>=1.3.0,<2.0.0`) and claims calibration.
+  * Updated `GEMINI.md` engineering rules.
+* **Completion Criteria:** 100% of the 69 automated unit/integration tests pass with 0 warnings in MCP Inspector.

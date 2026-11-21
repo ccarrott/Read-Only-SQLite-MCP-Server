@@ -128,3 +128,22 @@ MCP Inspector flagged schema portability warnings on `execute_query` (`outputSch
 * Replaced bare `Any` in `QueryExecutionResponse.rows` with concrete union `CellValue = Union[str, int, float, bool, None]`.
 * Replaced bare `Any` in `ColumnInfo.default_value` with `Optional[Union[str, int, float, bool]]`.
 * Verified all 65 automated tests pass cleanly with 100% schema portability.
+
+---
+
+## [Completed] — Milestone 5: Post-Review Hardening & Engine Precision
+
+### Context & Review
+Analyzed external code review by Claude Sonnet 5.5. Validated that while core write-blocking invariants held firm, improvements were needed for URI percent-encoding, parameterized table-valued pragmas, limiter isolation, and documentation precision.
+
+### Accomplishments
+* **URI Percent-Encoding:** Migrated URI construction in `db.py` to `Path.resolve().as_uri() + "?mode=ro"`, preventing Layer 1 bypass when database paths contain `#`, `%`, or `?`.
+* **Parameterized Table-Valued PRAGMAs:** Refactored `describe_table` in `db.py` to query SQLite's native table-valued functions (`pragma_table_info(?)`, `pragma_foreign_key_list(?)`, `pragma_index_list(?)`, `pragma_index_info(?)`) with bound parameters, natively handling apostrophe identifiers like `it's_table`.
+* **Limiter Isolation & Analytical Capacity:** Isolated `QueryInstructionLimiter` instances per query execution, avoiding instruction leakage from `list_tables` and `describe_table`. Exposed `SQLITE_MAX_INSTRUCTIONS` environment variable (default 10,000,000 instructions) for analytical workloads.
+* **Dependency & Claims Calibration:** Bumped `mcp` bound to `>=1.3.0,<2.0.0` and added `pytest-cov` to dev dependencies in `pyproject.toml`. Refined documentation to distinguish VM instruction steps from wall-clock timeouts.
+* **Engineering Rules Update:** Updated `GEMINI.md` with explicit URI percent-encoding, table-valued PRAGMA, and claims rigor rules.
+* **Added Unit Tests:** Added 4 new test cases in `tests/test_db.py` covering special characters in paths, table names with apostrophes, limiter isolation, and environment configuration.
+
+### Verification Results
+* Command: `pytest -v`
+* Result: 69 passed in 3.87s across all test suites.
