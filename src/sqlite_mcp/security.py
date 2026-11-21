@@ -65,6 +65,11 @@ SAFE_READ_GLOBAL_PRAGMAS = {
 ALLOWED_STATEMENT_TYPES = frozenset({"SELECT", "EXPLAIN", "WITH"})
 
 
+INTERNAL_SCHEMA_TABLES = frozenset(
+    {"sqlite_master", "sqlite_schema", "sqlite_temp_master", "sqlite_temp_schema"}
+)
+
+
 def read_only_authorizer(
     action_code: int,
     arg1: Optional[str],
@@ -77,6 +82,13 @@ def read_only_authorizer(
     Returns:
         sqlite3.SQLITE_OK to allow, sqlite3.SQLITE_DENY to block.
     """
+    # SQLite versions prior to 3.44 (e.g. SQLite 3.40.1 bundled with Windows Python 3.10)
+    # issue SQLITE_UPDATE callbacks on internal schema tables (sqlite_master/sqlite_schema)
+    # when compiling table-valued pragma queries (pragma_table_info, pragma_foreign_key_list, etc.).
+    # Because sqlite_master cannot be modified by user queries anyway, permit internal schema queries.
+    if action_code == sqlite3.SQLITE_UPDATE and arg1 in INTERNAL_SCHEMA_TABLES:
+        return sqlite3.SQLITE_OK
+
     if action_code in FORBIDDEN_ACTIONS:
         return sqlite3.SQLITE_DENY
 

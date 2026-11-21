@@ -103,9 +103,10 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 9: Python 3.10 Compatibility & Dynamic Prompt Fencing
+## Milestone 9: Windows Python 3.10 Engine Compatibility & Dynamic Prompt Fencing
 * **Goal:** Full multi-version CI green status (Python 3.10–3.13) and robust dynamic code fencing in DBA prompt generation.
 * **Deliverables:**
+  * Resolved SQLite 3.40.1 bundled engine pragma `SQLITE_UPDATE` on `sqlite_master` authorizer callback in `security.py`.
   * Resolved Python 3.10 `set_authorizer(None)` CPython bug in Layer 1 test isolation via `set_authorizer(lambda *args: sqlite3.SQLITE_OK)`.
   * Dynamic multi-backtick fencing in `analyze_schema` preventing inner DDL blocks from closing prompt markdown fences.
   * Integration test verifying dynamic fence expansion on table names with backticks and newlines.

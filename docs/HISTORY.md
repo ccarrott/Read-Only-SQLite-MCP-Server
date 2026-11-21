@@ -219,21 +219,23 @@ Addressed reviewer follow-up regarding CI matrix execution fidelity, empirical `
 
 ---
 
-## [Completed] — Milestone 9: Python 3.10 Compatibility & Dynamic Prompt Fencing
+## [Completed] — Milestone 9: Windows Python 3.10 Engine Compatibility & Dynamic Prompt Fencing
 
 ### Context & Refinement
-Addressed CI failure on Python 3.10 and reviewer feedback regarding prompt block integrity:
-1. Python 3.10 jobs failed in CI during Layer 1 test isolation because CPython 3.10 `sqlite3.Connection.set_authorizer(None)` does not unregister the authorizer hook (CPython issue bpo-44431).
-2. The schema fence in `analyze_schema` used a static 3-backtick fence (` ```markdown `), which collided with inner ```` ```sql ```` DDL blocks.
-3. The prompt sanitization claim in `SECURITY.md` needed precision: structural formatting breakouts are mitigated, but semantic instruction text is not filtered.
+Diagnosed and resolved test failures on Windows Python 3.10 and hardened prompt generation:
+1. In Python 3.10 CPython, calling `conn.set_authorizer(None)` does not unregister the authorizer callback due to upstream issue bpo-44431, affecting Layer 1 test isolation.
+2. In Windows Python 3.10 (3.10.11), which bundles SQLite 3.40.1, querying table-valued pragma functions (`pragma_table_info`, `pragma_foreign_key_list`, `pragma_index_list`, `pragma_index_info`) triggers an internal SQLite authorizer callback with `action_code == SQLITE_UPDATE` (23) on `arg1='sqlite_master'`. In SQLite versions prior to 3.44, this caused `read_only_authorizer` to reject schema introspection with `OperationalError: not authorized`.
+3. The schema fence in `analyze_schema` used a static 3-backtick fence (` ```markdown `), which collided with inner ```` ```sql ```` DDL blocks.
+4. The prompt sanitization claim in `SECURITY.md` needed precision: structural formatting breakouts are mitigated, but semantic instruction text is not filtered.
 
 ### Accomplishments
-* **Python 3.10 Layer 1 Isolation Fix:** In `tests/test_db.py`, updated `test_uri_encoding_with_special_characters` to bypass Layer 2 via `ro_conn.set_authorizer(lambda *args: sqlite3.SQLITE_OK)` rather than `set_authorizer(None)`. This cleanly permits all actions at Layer 2 across Python 3.10, 3.11, 3.12, and 3.13, verifying that `ro_conn.execute("INSERT ...")` is rejected purely by Layer 1 (`mode=ro`). Verified locally against Python 3.10.22.
+* **Resolved Windows Python 3.10 Bundled SQLite Pragma Behavior:** In `src/sqlite_mcp/security.py`, updated `read_only_authorizer` to permit `SQLITE_UPDATE` when `arg1 in ("sqlite_master", "sqlite_schema", "sqlite_temp_master", "sqlite_temp_schema")`. Because `sqlite_master` cannot be modified by user queries anyway (SQLite natively throws `table sqlite_master may not be modified`), this cleanly permits internal schema queries on older bundled SQLite engines while strictly continuing to block all update attempts on user tables. Verified directly using official Python 3.10.11 on Windows.
+* **Python 3.10 Layer 1 Isolation Fix:** In `tests/test_db.py`, updated `test_uri_encoding_with_special_characters` to bypass Layer 2 via `ro_conn.set_authorizer(lambda *args: sqlite3.SQLITE_OK)` rather than `set_authorizer(None)`. This cleanly permits all actions at Layer 2 across Python 3.10, 3.11, 3.12, and 3.13, verifying that `ro_conn.execute("INSERT ...")` is rejected purely by Layer 1 (`mode=ro`).
 * **Dynamic Multi-Backtick Fencing:** Refactored `analyze_schema` in `src/sqlite_mcp/prompts.py` to calculate fence length dynamically: `` "`" * max(4, max_run + 1) ``, where `max_run` is the longest consecutive run of backticks in `schema_markdown`. This guarantees that inner 3-backtick DDL blocks (```` ```sql ````) and backtick-containing identifiers cannot close the outer block early.
 * **Added Dynamic Fence Test:** Implemented `test_analyze_schema_prompt_dynamic_fence_with_backticks` in `tests/test_mcp_tools.py`, generating a database table with 4 consecutive backticks and verifying that the outer fence expands to 5 backticks, enclosing the entire schema.
 * **Calibrated Threat Model:** Updated `SECURITY.md` to state that dynamic fencing and whitespace flattening reduce structural formatting breakouts without claiming to neutralize semantic prompt injection.
 
 ### Verification Results
 * Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
-* Result: 77 passed in 6.22s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).
-* Local Python 3.10 Verification: 77 passed in 4.00s.
+* Result: 77 passed in 5.90s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).
+* Local Python 3.10.11 Windows Verification: Verified `describe_table` and `get_database_schema_markdown` pass cleanly on the official Python 3.10.11 Windows binary.
