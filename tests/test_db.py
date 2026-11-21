@@ -196,21 +196,16 @@ class TestDatabaseManagerExecution:
         res = mgr.execute_query("SELECT id FROM sample;")
         assert res["rows"][0][0] == 42
 
-        # Verify Layer 1 (mode=ro) is directly enforced on raw URI without Layer 2 authorizer or Layer 3 query_only
-        raw_uri = f"{db_file.resolve().as_uri()}?mode=ro"
-        raw_conn = sqlite3.connect(raw_uri, uri=True)
-        try:
-            with pytest.raises(sqlite3.OperationalError) as exc_info:
-                raw_conn.execute("INSERT INTO sample VALUES (99);")
-            assert "readonly" in str(exc_info.value).lower()
-        finally:
-            raw_conn.close()
-
-        # Also verify via DatabaseManager connection that writes are blocked
+        # Verify Layer 1 (mode=ro) is directly enforced on the connection produced by mgr.get_connection().
+        # We strip Layer 2 (authorizer) and disable Layer 3 (query_only) directly on the production instance,
+        # proving that the production URI itself independently prevents mutations.
         ro_conn = mgr.get_connection()
         try:
-            with pytest.raises((sqlite3.OperationalError, sqlite3.DatabaseError)):
+            ro_conn.set_authorizer(None)
+            ro_conn.execute("PRAGMA query_only = OFF;")
+            with pytest.raises(sqlite3.OperationalError) as exc_info:
                 ro_conn.execute("INSERT INTO sample VALUES (99);")
+            assert "readonly" in str(exc_info.value).lower()
         finally:
             ro_conn.close()
 
@@ -241,14 +236,16 @@ class TestDatabaseManagerExecution:
         assert res["row_count"] == 1
 
     def test_configurable_instruction_limit_via_env(
-        self, sample_db_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, sample_db_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
     ) -> None:
         # 1. Custom positive integer takes effect dynamically upon construction
         monkeypatch.setenv("SQLITE_MAX_INSTRUCTIONS", "25000000")
         mgr_custom = DatabaseManager(sample_db_path)
         assert mgr_custom.max_instructions == 25_000_000
 
-        # 2. Invalid string value falls back to default safely without crashing
+        # 2. Invalid string value falls back to default safely and emits warning to stderr
         monkeypatch.setenv("SQLITE_MAX_INSTRUCTIONS", "not_a_number")
         mgr_fallback = DatabaseManager(sample_db_path)
         assert mgr_fallback.max_instructions == 10_000_000
+        captured = capsys.readouterr()
+        assert "Warning: Invalid SQLITE_MAX_INSTRUCTIONS 'not_a_number'" in captured.err

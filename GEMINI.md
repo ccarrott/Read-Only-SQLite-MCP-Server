@@ -33,13 +33,19 @@
 * **Calm Open-Source Tone:** Keep READMEs and documentation grounded and factual. Avoid marketing adjectives ("high-performance", "bulletproof") unless backed by published benchmarks.
 
 ### 2.6 Defense Layer Test Isolation
-* **Test Each Layer Independently:** When writing tests for multi-layer security systems, verify each layer in isolation. Never test Layer 1 (OS/VFS read-only mode) with Layer 2 (Engine Authorizer) attached, or the higher layer will mask failures in the lower layer.
+* **Test Each Layer Independently on Production Objects:** When writing tests for multi-layer security systems, verify each layer in isolation on the connection returned by the production factory (`mgr.get_connection()`). Strip higher layers (`conn.set_authorizer(None)`, `PRAGMA query_only = OFF`) to prove lower layers independently block mutations.
 
 ### 2.7 Dynamic & Resilient Environment Configuration
-* **No Fragile Module-Level Int Casts:** Never parse environment variables with raw `int(os.environ.get(...))` at module root. Always parse via a dynamic helper that validates positive integers and falls back safely on invalid strings, allowing runtime reconfiguration and clean test monkeypatching.
+* **No Fragile Module-Level Int Casts:** Never parse environment variables with raw `int(os.environ.get(...))` at module root. Always parse via a dynamic helper that validates positive integers and falls back safely, emitting a diagnostic warning to `sys.stderr` on invalid strings.
 
 ### 2.8 Full SQLite Quotation Support
-* **Handle All SQLite Identifier Styles:** When parsing or scanning SQL statements, account for all SQLite quoting styles: single quotes (`'...'`), double quotes (`"..."`), square brackets (`[...]`), and backticks (`` `...` ``).
+* **Handle All SQLite Identifier Styles Accurately:**
+  - Single quotes (`'...'`) and double quotes (`"..."`): Doubling escapes the quote (`''`, `""`).
+  - Backticks (`` `...` ``): Doubling escapes the backtick (`` `` ``).
+  - Square brackets (`[...]`): Terminate on the first closing `]`. There is no escape character in SQLite bracket identifiers.
+
+### 2.9 Clean Repository Structure
+* **Keep Root Clean:** House internal development tracking files (`PLAN.md`, `ROADMAP.md`, `SCENARIO.md`, `TESTING.md`, `HISTORY.md`) in `docs/`. Reserve the root for standard open-source files (`README.md`, `LICENSE`, `pyproject.toml`, `mcp_config.json`, `GEMINI.md`).
 
 ---
 
@@ -50,14 +56,14 @@
 * **Immediate Test Verification:** Execute `pytest` or a fast local smoke script after modifying code. Never claim a task is complete until automated checks pass.
 
 ### 3.2 Anti-Spiral & Quota Guardrails
-* **One Milestone per Turn:** Focus strictly on the active task in `ROADMAP.md`. Do not perform random refactoring on unrelated files.
+* **One Milestone per Turn:** Focus strictly on the active task in `docs/ROADMAP.md`. Do not perform random refactoring on unrelated files.
 * **3-Strike Loop Cap:** If a test or implementation attempt fails $3$ times in a row with the same error:
   1. **STOP** writing code immediately.
-  2. Log the exact error, what was attempted, and why it failed in `HISTORY.md`.
+  2. Log the exact error, what was attempted, and why it failed in `docs/HISTORY.md`.
   3. Prompt the user with a concise summary of the roadblock and ask for directional guidance.
 * **Zero Self-Doubt Fluff:** Avoid hedging, performative apologizing, or guessing. State what failed, the root cause identified via logs or tests, and the proposed fix clearly.
 
 ---
 
 ## 4. Active Ledger Maintenance
-* **Continuous Updates to `HISTORY.md`:** Update `HISTORY.md` immediately upon completing milestones, solving non-trivial bugs, or changing architectural decisions.
+* **Continuous Updates to `docs/HISTORY.md`:** Update `docs/HISTORY.md` immediately upon completing milestones, solving non-trivial bugs, or changing architectural decisions.

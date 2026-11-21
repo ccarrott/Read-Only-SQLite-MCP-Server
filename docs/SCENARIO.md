@@ -41,8 +41,8 @@ This project creates a **Safe Read-Only SQLite Explorer MCP Server**. Built usin
 
 ## 4. Hard Constraints & Security Requirements
 
-1. **100% Immutable Read-Only Guarantee (4-Layer Defense):**
-   * **Layer 1 (OS/Driver):** Open SQLite connection in URI read-only mode (`file:path?mode=ro`, `uri=True`).
+1. **Immutable Read-Only Guarantee (4-Layer Defense):**
+   * **Layer 1 (OS/Driver):** Open SQLite connection in URI read-only mode (`Path.resolve().as_uri() + "?mode=ro"`, `uri=True`).
    * **Layer 2 (Engine Authorizer):** Register native SQLite C-level authorizer (`conn.set_authorizer`) to reject `SQLITE_INSERT`, `SQLITE_UPDATE`, `SQLITE_DELETE`, `SQLITE_DROP_TABLE`, `SQLITE_ALTER_TABLE`, `SQLITE_ATTACH`, and `SQLITE_PRAGMA` write operations at the engine level.
    * **Layer 3 (Pragma Enforcement):** Execute `PRAGMA query_only = ON;` immediately upon connection setup.
    * **Layer 4 (Statement Inspection):** Normalize SQL strings to verify leading statement type is `SELECT`, `EXPLAIN`, or `WITH`.
@@ -62,6 +62,6 @@ This project creates a **Safe Read-Only SQLite Explorer MCP Server**. Built usin
 
 ## 5. Definition of Done (Final Product)
 * A single executable Python package (`sqlite_mcp`) that boots cleanly via CLI arguments (`--db-path`) or `mcp_config.json`.
-* 100% test coverage on security gatekeeping (rejecting all mutation attempts cleanly via engine authorizer).
+* Comprehensive test suite verifying security gatekeeping (rejecting mutation attempts cleanly via engine authorizer and URI read-only mode).
 * Zero hanging processes, context crashes, or unhandled exceptions on invalid SQL queries or binary data.
 * Comprehensive documentation in `README.md` showing how to register the server in Antigravity.

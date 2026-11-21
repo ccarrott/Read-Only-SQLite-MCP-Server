@@ -75,6 +75,10 @@ class TestStatementValidator:
             "SELECT 1; SELECT 2;",
             "SELECT * FROM users; DELETE FROM orders WHERE id = 1;",
             "WITH cte AS (SELECT 1) SELECT * FROM cte; DROP TABLE users;",
+            "SELECT [name] FROM users; DROP TABLE orders;",
+            "SELECT `name` FROM users; DROP TABLE orders;",
+            "SELECT * FROM users WHERE [id] = 1; DELETE FROM users;",
+            "SELECT * FROM users WHERE `name` = 'test'; DROP TABLE users;",
         ],
     )
     def test_stacked_statements_rejected(self, query: str) -> None:

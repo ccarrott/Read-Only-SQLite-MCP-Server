@@ -61,7 +61,7 @@ Initiated project setup for **Safe Read-Only SQLite Explorer MCP Server**. Estab
 
 ### Verification Results
 * Command: `pytest -v`
-* Result: 52 passed in 1.02s (100% of mutation attempts blocked, BLOBs serialized safely, timeouts triggered).
+* Result: 52 passed in 1.02s (mutation attempts blocked, BLOBs serialized safely, instruction limits triggered).
 
 ---
 
@@ -114,7 +114,7 @@ Initiated project setup for **Safe Read-Only SQLite Explorer MCP Server**. Estab
 
 ### Verification Results
 * Command: `pytest -v`
-* Result: 65 passed in 3.36s (100% test coverage across all security vectors, database operations, tools, resources, prompts, and stdio JSON-RPC lifecycle).
+* Result: 65 passed in 3.36s across all security vectors, database operations, tools, resources, prompts, and stdio JSON-RPC lifecycle.
 * Database & server verified ready for live client connections.
 
 ---
@@ -127,7 +127,7 @@ MCP Inspector flagged schema portability warnings on `execute_query` (`outputSch
 ### Fix
 * Replaced bare `Any` in `QueryExecutionResponse.rows` with concrete union `CellValue = Union[str, int, float, bool, None]`.
 * Replaced bare `Any` in `ColumnInfo.default_value` with `Optional[Union[str, int, float, bool]]`.
-* Verified all 65 automated tests pass cleanly with 100% schema portability.
+* Verified all 65 automated tests pass cleanly with strict MCP schema compatibility.
 
 ---
 
@@ -164,4 +164,29 @@ Addressed follow-up peer review regarding test layer isolation, dynamic environm
 
 ### Verification Results
 * Command: `pytest -v`
-* Result: 72 passed with 100% layer isolation.
+* Result: 72 passed with verified layer isolation.
+
+---
+
+## [Completed] — Milestone 7: Production Layer Isolation, Bracket Grammar & Repo Polish
+
+### Context & Refinement
+Addressed final code review points:
+1. Production Layer 1 test isolation directly verifying `mgr.get_connection()`.
+2. SQLite bracket quoting grammar correction (immediate termination on first `]`, no escaping).
+3. Stacked statement rejection tests with brackets and backticks.
+4. User-friendly stderr warning on invalid `SQLITE_MAX_INSTRUCTIONS` configuration.
+5. Removal of unused dead code (`QueryInstructionLimiter.reset()`).
+6. Clean repository layout (`docs/` folder reorganization, `.github/workflows/ci.yml`, `SECURITY.md`).
+
+### Accomplishments
+* **Production Connection Layer 1 Isolation:** In `test_uri_encoding_with_special_characters`, obtained `mgr.get_connection()`, cleared authorizer (`set_authorizer(None)`), deactivated query-only (`PRAGMA query_only = OFF;`), and asserted that writes fail with `"attempt to write a readonly database"`. This directly tests that `mgr.get_connection()` generates a valid `mode=ro` URI without relying on Layer 2 or Layer 3.
+* **Exact Bracket Quoting Grammar:** Fixed `has_stacked_statements` in `security.py` so that square bracket identifiers (`[...]`) close strictly on the first `]`, matching SQLite's engine specification.
+* **Added Stacked Quoting Rejection Tests:** Added parameterized negative tests in `tests/test_security.py` verifying that queries with stacked statements following bracketed or backtick identifiers (e.g. `SELECT [name] FROM users; DROP TABLE orders;`) are properly rejected.
+* **Configuration Stderr Diagnostics:** Emitted a clear diagnostic warning to `sys.stderr` when `SQLITE_MAX_INSTRUCTIONS` cannot be parsed or is non-positive, ensuring users get feedback while protocol stability on `stdout` is maintained.
+* **Dead Code Cleanup:** Removed unused `QueryInstructionLimiter.reset()`.
+* **Clean Repository Structure:** Moved internal specifications (`PLAN.md`, `ROADMAP.md`, `SCENARIO.md`, `TESTING.md`, `HISTORY.md`) into `docs/`. Added `.github/workflows/ci.yml` and `SECURITY.md`.
+
+### Verification Results
+* Command: `pytest -v`
+* Result: 76 passed in 3.58s across all test suites.

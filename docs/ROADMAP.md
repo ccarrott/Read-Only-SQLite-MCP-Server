@@ -64,4 +64,27 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * Isolated per-query instruction limiters and configurable analytical budget (`SQLITE_MAX_INSTRUCTIONS`).
   * Dependency bound refinement (`mcp>=1.3.0,<2.0.0`) and claims calibration.
   * Updated `GEMINI.md` engineering rules.
-* **Completion Criteria:** 100% of the 69 automated unit/integration tests pass with 0 warnings in MCP Inspector.
+* **Completion Criteria:** All 69 automated unit/integration tests pass with 0 warnings in MCP Inspector.
+
+---
+
+## Milestone 6: Test Layer Isolation & Full Quote Syntax
+* **Goal:** Direct layer verification in tests and complete SQLite quoting syntax in statement scanning.
+* **Deliverables:**
+  * Direct filesystem-level `mode=ro` testing in `test_db.py`.
+  * Safe dynamic environment parsing in `get_default_max_instructions()`.
+  * Extended quoting scanner covering `[...]` and backticks in `security.py`.
+* **Completion Criteria:** All 72 tests pass with direct layer isolation verified.
+
+---
+
+## Milestone 7: Production Connection Isolation, Bracket Grammar & Clean Repo
+* **Goal:** Production factory connection layer isolation, strict bracket grammar, CI workflow, and repository reorganization.
+* **Deliverables:**
+  * Test Layer 1 isolation directly against `DatabaseManager.get_connection()`.
+  * Strict bracket quoting grammar (close on first `]`).
+  * Parameterized tests for rejection of stacked statements with bracketed/backtick identifiers.
+  * Stderr warning diagnostics on invalid `SQLITE_MAX_INSTRUCTIONS`.
+  * GitHub Actions CI workflow (`.github/workflows/ci.yml`) and `SECURITY.md`.
+  * Clean repository structure with documentation located in `docs/`.
+* **Completion Criteria:** All 76 tests pass across all test suites, CI workflow configured, clean repository layout.

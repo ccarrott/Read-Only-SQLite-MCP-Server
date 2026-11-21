@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import time
 from typing import Any, Dict, List, Optional, Sequence, Union
 
@@ -29,8 +30,13 @@ def get_default_max_instructions() -> int:
             val = int(raw.strip())
             if val > 0:
                 return val
+            sys.stderr.write(
+                f"Warning: SQLITE_MAX_INSTRUCTIONS must be positive, got '{raw}'. Falling back to {FALLBACK_MAX_INSTRUCTIONS}.\n"
+            )
         except ValueError:
-            pass
+            sys.stderr.write(
+                f"Warning: Invalid SQLITE_MAX_INSTRUCTIONS '{raw}'. Falling back to {FALLBACK_MAX_INSTRUCTIONS}.\n"
+            )
     return FALLBACK_MAX_INSTRUCTIONS
 
 
@@ -40,10 +46,6 @@ class QueryInstructionLimiter:
     def __init__(self, max_instructions: Optional[int] = None, step: int = PROGRESS_STEP_SIZE):
         self.max_instructions = max_instructions if max_instructions is not None else get_default_max_instructions()
         self.step = step
-        self.count = 0
-
-    def reset(self) -> None:
-        """Resets the VM instruction step counter."""
         self.count = 0
 
     def __call__(self) -> int:

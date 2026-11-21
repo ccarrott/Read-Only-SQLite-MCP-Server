@@ -148,10 +148,7 @@ def has_stacked_statements(sql: str) -> bool:
                     in_double_quote = False
         elif in_brackets:
             if c == "]":
-                if next_c == "]":
-                    i += 1  # Escaped closing bracket
-                else:
-                    in_brackets = False
+                in_brackets = False
         elif in_backticks:
             if c == "`":
                 if next_c == "`":

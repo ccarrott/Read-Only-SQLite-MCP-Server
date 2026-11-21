@@ -5,15 +5,21 @@
 The project follows a modular, low-overhead Python structure:
 
 ```
-sqlite_mcp_server/
+Read-Only-SQLite-MCP-Server/
 ├── README.md
+├── SECURITY.md
 ├── pyproject.toml
-├── SCENARIO.md
-├── PLAN.md
-├── ROADMAP.md
 ├── GEMINI.md
-├── HISTORY.md
-├── TESTING.md
+├── mcp_config.json
+├── docs/
+│   ├── PLAN.md
+│   ├── ROADMAP.md
+│   ├── SCENARIO.md
+│   ├── TESTING.md
+│   └── HISTORY.md
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── src/
 │   └── sqlite_mcp/
 │       ├── __init__.py
@@ -24,9 +30,13 @@ sqlite_mcp_server/
 │       ├── resources.py     # MCP resource provider definitions
 │       └── prompts.py       # MCP prompt templates
 └── tests/
+    ├── conftest.py
+    ├── fixtures/
+    ├── test_fixtures.py
     ├── test_security.py    # Unit tests for read-only security authorizer
     ├── test_db.py          # Unit tests for SQLite reader engine & BLOB handling
-    └── test_mcp_tools.py   # E2E integration tests for MCP tools
+    ├── test_mcp_tools.py   # E2E integration tests for MCP tools
+    └── test_server_stdio.py # Subprocess stdio JSON-RPC lifecycle tests
 ```
 
 ---
@@ -129,3 +139,11 @@ Using `from mcp.server.fastmcp import FastMCP`:
 - [x] Refine `pyproject.toml` dependency bound to `mcp>=1.3.0,<2.0.0` and add `pytest-cov`.
 - [x] Add unit tests for special characters in paths, apostrophe-containing identifiers, and limiter isolation.
 - [x] Update `GEMINI.md` with URI encoding, table-valued PRAGMA, and claims discipline rules.
+
+### Phase 7: Production Layer Isolation, Bracket Grammar & Repo Polish
+- [x] Directly test Layer 1 URI isolation on `mgr.get_connection()` with authorizer and query-only cleared.
+- [x] Fix square bracket grammar in `has_stacked_statements` to close strictly on first `]`.
+- [x] Add negative stacked statement test cases for bracket and backtick identifiers.
+- [x] Emit `sys.stderr` warning on invalid `SQLITE_MAX_INSTRUCTIONS` values.
+- [x] Remove dead code (`QueryInstructionLimiter.reset()`).
+- [x] Reorganize documentation into `docs/` and add `.github/workflows/ci.yml` and `SECURITY.md`.

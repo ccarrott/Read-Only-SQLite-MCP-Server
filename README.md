@@ -124,3 +124,15 @@ The test suite verifies:
 * BLOBs and long strings serialize without errors.
 * Runaway loops and unindexed Cartesian joins trigger virtual machine instruction limit interrupts.
 * End-to-end stdio subprocess handshake passes without protocol corruption.
+
+---
+
+## 7. Architecture & Documentation
+
+Detailed project architecture, testing strategies, and change logs are organized in the `docs/` directory:
+
+* [`docs/PLAN.md`](docs/PLAN.md) — Architectural design, module layout, and implementation breakdown.
+* [`docs/ROADMAP.md`](docs/ROADMAP.md) — Project milestones, execution stages, and verification criteria.
+* [`docs/TESTING.md`](docs/TESTING.md) — Test suite design, edge-case testing matrices, and agent verification checklists.
+* [`docs/HISTORY.md`](docs/HISTORY.md) — Chronological development ledger, architectural decisions, and review resolutions.
+* [`SECURITY.md`](SECURITY.md) — Security policy, 4-layer defense breakdown, threat model, and vulnerability reporting.
