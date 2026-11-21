@@ -114,6 +114,8 @@ def has_stacked_statements(sql: str) -> bool:
     """Detects if SQL contains multiple distinct statements separated by semicolons."""
     in_single_quote = False
     in_double_quote = False
+    in_brackets = False
+    in_backticks = False
     in_line_comment = False
     in_block_comment = False
     semicolon_seen = False
@@ -144,6 +146,18 @@ def has_stacked_statements(sql: str) -> bool:
                     i += 1  # Escaped double quote
                 else:
                     in_double_quote = False
+        elif in_brackets:
+            if c == "]":
+                if next_c == "]":
+                    i += 1  # Escaped closing bracket
+                else:
+                    in_brackets = False
+        elif in_backticks:
+            if c == "`":
+                if next_c == "`":
+                    i += 1  # Escaped backtick
+                else:
+                    in_backticks = False
         else:
             if c == "-" and next_c == "-":
                 in_line_comment = True
@@ -159,6 +173,14 @@ def has_stacked_statements(sql: str) -> bool:
                 if semicolon_seen:
                     return True
                 in_double_quote = True
+            elif c == "[":
+                if semicolon_seen:
+                    return True
+                in_brackets = True
+            elif c == "`":
+                if semicolon_seen:
+                    return True
+                in_backticks = True
             elif c == ";":
                 semicolon_seen = True
             elif not c.isspace():

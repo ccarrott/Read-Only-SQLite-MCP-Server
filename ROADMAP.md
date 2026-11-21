@@ -23,7 +23,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * `security.py` implementing SQLite's native `set_authorizer` callback.
   * `db.py` implementing read-only URI connection handling, progress limits, and BLOB/cell data formatting.
   * Unit tests (`test_security.py` and `test_db.py`).
-* **Completion Criteria:** 100% of mutation attempts (`DROP`, `INSERT`, `UPDATE`, `PRAGMA write`) are caught and blocked at the engine level with zero memory leaks or unhandled errors.
+* **Completion Criteria:** All defined mutation attempts (`DROP`, `INSERT`, `UPDATE`, `PRAGMA write`) are caught and blocked at the engine level with zero unhandled errors.
 
 ---
 

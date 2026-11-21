@@ -99,7 +99,8 @@ Add the server to your MCP client configuration (e.g., `mcp_config.json`):
         "/absolute/path/to/your/database.db"
       ],
       "env": {
-        "LOG_LEVEL": "INFO"
+        "LOG_LEVEL": "INFO",
+        "SQLITE_MAX_INSTRUCTIONS": "10000000"
       }
     }
   }
@@ -116,9 +117,10 @@ Run the full automated test suite covering security authorizers, data sanitizati
 pytest -v
 ```
 
-All 65 tests verify:
-* 100% of mutation attempts (`DROP`, `INSERT`, `UPDATE`, `ALTER`, `ATTACH`, `PRAGMA write`) are caught and rejected.
-* Multi-statement query injection is denied.
+The test suite verifies:
+* Tested mutation vectors (`DROP`, `INSERT`, `UPDATE`, `ALTER`, `ATTACH`, `PRAGMA write`) are caught and rejected.
+* Layer 1 OS/VFS `mode=ro` protection is verified in isolation with percent-encoded URIs.
+* Multi-statement query injection is denied across all quoting styles (single quotes, double quotes, brackets, and backticks).
 * BLOBs and long strings serialize without errors.
-* Infinite recursion triggers timeout interrupts.
+* Runaway loops and unindexed Cartesian joins trigger virtual machine instruction limit interrupts.
 * End-to-end stdio subprocess handshake passes without protocol corruption.

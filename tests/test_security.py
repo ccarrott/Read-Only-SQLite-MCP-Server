@@ -38,6 +38,9 @@ class TestStatementValidator:
             "/* block comment */ SELECT count(*) FROM orders;",
             "SELECT * FROM users WHERE name = 'user;with;semicolons';",
             "SELECT * FROM users WHERE bio = \"semicolon;in;double;quotes\";",
+            "SELECT * FROM [users;table];",
+            "SELECT * FROM `orders;table`;",
+            "SELECT [col;1], `col;2` FROM users;",
         ],
     )
     def test_allowed_statements(self, query: str) -> None:

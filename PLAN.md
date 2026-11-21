@@ -64,7 +64,7 @@ def read_only_authorizer(action_code, arg1, arg2, db_name, trigger_name):
 ```
 
 ### 2.2 Connection Management & Resilience (`db.py`)
-* Connection setup: `sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10.0)`.
+* Connection setup: `sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True, timeout=10.0)`.
 * Register `conn.set_authorizer(read_only_authorizer)`.
 * Execute `PRAGMA query_only = ON;`.
 * **BLOB & Data Formatting:** Convert query tuples using a custom row sanitizer:

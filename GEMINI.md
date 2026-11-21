@@ -32,6 +32,15 @@
 * **Zero Speculative Metrics:** Never claim "100% test coverage" or "zero memory leaks" unless verified by automated tooling (e.g., `pytest-cov`, `tracemalloc`).
 * **Calm Open-Source Tone:** Keep READMEs and documentation grounded and factual. Avoid marketing adjectives ("high-performance", "bulletproof") unless backed by published benchmarks.
 
+### 2.6 Defense Layer Test Isolation
+* **Test Each Layer Independently:** When writing tests for multi-layer security systems, verify each layer in isolation. Never test Layer 1 (OS/VFS read-only mode) with Layer 2 (Engine Authorizer) attached, or the higher layer will mask failures in the lower layer.
+
+### 2.7 Dynamic & Resilient Environment Configuration
+* **No Fragile Module-Level Int Casts:** Never parse environment variables with raw `int(os.environ.get(...))` at module root. Always parse via a dynamic helper that validates positive integers and falls back safely on invalid strings, allowing runtime reconfiguration and clean test monkeypatching.
+
+### 2.8 Full SQLite Quotation Support
+* **Handle All SQLite Identifier Styles:** When parsing or scanning SQL statements, account for all SQLite quoting styles: single quotes (`'...'`), double quotes (`"..."`), square brackets (`[...]`), and backticks (`` `...` ``).
+
 ---
 
 ## 3. Gemini 3.8 Flash Execution & Verification Discipline

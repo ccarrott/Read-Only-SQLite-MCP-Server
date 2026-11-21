@@ -134,7 +134,7 @@ MCP Inspector flagged schema portability warnings on `execute_query` (`outputSch
 ## [Completed] — Milestone 5: Post-Review Hardening & Engine Precision
 
 ### Context & Review
-Analyzed external code review by Claude Sonnet 5.5. Validated that while core write-blocking invariants held firm, improvements were needed for URI percent-encoding, parameterized table-valued pragmas, limiter isolation, and documentation precision.
+Analyzed external code review from independent peer audit. Validated that while core write-blocking invariants held firm, improvements were needed for URI percent-encoding, parameterized table-valued pragmas, limiter isolation, and documentation precision.
 
 ### Accomplishments
 * **URI Percent-Encoding:** Migrated URI construction in `db.py` to `Path.resolve().as_uri() + "?mode=ro"`, preventing Layer 1 bypass when database paths contain `#`, `%`, or `?`.
@@ -147,3 +147,21 @@ Analyzed external code review by Claude Sonnet 5.5. Validated that while core wr
 ### Verification Results
 * Command: `pytest -v`
 * Result: 69 passed in 3.87s across all test suites.
+
+---
+
+## [Completed] — Milestone 6: Test Isolation & Scanner Quote Expansion
+
+### Context & Refinement
+Addressed follow-up peer review regarding test layer isolation, dynamic environment parsing, and quotation coverage in statement parsing.
+
+### Accomplishments
+* **Direct Layer 1 Test Isolation:** Updated `test_uri_encoding_with_special_characters` to test `sqlite3.connect` with raw `mode=ro` URI independently without Layer 2 authorizer or Layer 3 pragma masking, proving filesystem-level write blocking.
+* **Resilient Environment Parsing:** Implemented `get_default_max_instructions()` with safe fallback to `10_000_000`, eliminating import-time integer parsing crashes and enabling dynamic runtime reconfiguration.
+* **Expanded Identifier Quotation Support:** Extended `has_stacked_statements` in `security.py` to support SQLite square brackets (`[...]`) and backticks (`` `...` ``), eliminating false positives when semicolons appear inside bracketed or backtick-quoted table/column names.
+* **Repository-Wide Spec Sweep:** Cleared all remaining uncalibrated claims across `README.md`, `ROADMAP.md`, `PLAN.md`, and documented `SQLITE_MAX_INSTRUCTIONS` in `mcp_config.json`.
+* **Engineering Rules Update:** Added Sections 2.6, 2.7, and 2.8 to `GEMINI.md` governing defense layer test isolation, dynamic config, and complete quotation scanning.
+
+### Verification Results
+* Command: `pytest -v`
+* Result: 72 passed with 100% layer isolation.

@@ -196,12 +196,21 @@ class TestDatabaseManagerExecution:
         res = mgr.execute_query("SELECT id FROM sample;")
         assert res["rows"][0][0] == 42
 
-        # Verify Layer 1 (mode=ro) is still enforced and wasn't dropped by '#' splitting
+        # Verify Layer 1 (mode=ro) is directly enforced on raw URI without Layer 2 authorizer or Layer 3 query_only
+        raw_uri = f"{db_file.resolve().as_uri()}?mode=ro"
+        raw_conn = sqlite3.connect(raw_uri, uri=True)
+        try:
+            with pytest.raises(sqlite3.OperationalError) as exc_info:
+                raw_conn.execute("INSERT INTO sample VALUES (99);")
+            assert "readonly" in str(exc_info.value).lower()
+        finally:
+            raw_conn.close()
+
+        # Also verify via DatabaseManager connection that writes are blocked
         ro_conn = mgr.get_connection()
         try:
-            with pytest.raises((sqlite3.OperationalError, sqlite3.DatabaseError)) as exc_info:
+            with pytest.raises((sqlite3.OperationalError, sqlite3.DatabaseError)):
                 ro_conn.execute("INSERT INTO sample VALUES (99);")
-            assert "readonly" in str(exc_info.value).lower() or "not authorized" in str(exc_info.value).lower()
         finally:
             ro_conn.close()
 
@@ -234,8 +243,12 @@ class TestDatabaseManagerExecution:
     def test_configurable_instruction_limit_via_env(
         self, sample_db_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("SQLITE_MAX_INSTRUCTIONS", "20000000")
-        # Re-import or construct with env default
-        from sqlite_mcp.db import DatabaseManager as FreshManager
-        mgr = FreshManager(sample_db_path)
-        assert mgr.max_instructions >= 10_000_000
+        # 1. Custom positive integer takes effect dynamically upon construction
+        monkeypatch.setenv("SQLITE_MAX_INSTRUCTIONS", "25000000")
+        mgr_custom = DatabaseManager(sample_db_path)
+        assert mgr_custom.max_instructions == 25_000_000
+
+        # 2. Invalid string value falls back to default safely without crashing
+        monkeypatch.setenv("SQLITE_MAX_INSTRUCTIONS", "not_a_number")
+        mgr_fallback = DatabaseManager(sample_db_path)
+        assert mgr_fallback.max_instructions == 10_000_000

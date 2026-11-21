@@ -17,19 +17,33 @@ from sqlite_mcp.security import (
 MAX_CELL_CHARS = 500
 DEFAULT_ROW_LIMIT = 100
 MAX_ROW_LIMIT = 1000
-DEFAULT_MAX_INSTRUCTIONS = int(os.environ.get("SQLITE_MAX_INSTRUCTIONS", "10000000"))
+FALLBACK_MAX_INSTRUCTIONS = 10_000_000
 PROGRESS_STEP_SIZE = 10_000
+
+
+def get_default_max_instructions() -> int:
+    """Dynamically resolves default instruction limit from environment, falling back safely on invalid values."""
+    raw = os.environ.get("SQLITE_MAX_INSTRUCTIONS")
+    if raw:
+        try:
+            val = int(raw.strip())
+            if val > 0:
+                return val
+        except ValueError:
+            pass
+    return FALLBACK_MAX_INSTRUCTIONS
 
 
 class QueryInstructionLimiter:
     """Monitors virtual VM instruction count to abort runaway queries."""
 
-    def __init__(self, max_instructions: int = DEFAULT_MAX_INSTRUCTIONS, step: int = PROGRESS_STEP_SIZE):
-        self.max_instructions = max_instructions
+    def __init__(self, max_instructions: Optional[int] = None, step: int = PROGRESS_STEP_SIZE):
+        self.max_instructions = max_instructions if max_instructions is not None else get_default_max_instructions()
         self.step = step
         self.count = 0
 
     def reset(self) -> None:
+        """Resets the VM instruction step counter."""
         self.count = 0
 
     def __call__(self) -> int:
@@ -64,7 +78,7 @@ class DatabaseManager:
 
     def __init__(self, db_path: Union[str, Path], max_instructions: Optional[int] = None):
         self.db_path = Path(db_path).resolve()
-        self.max_instructions = max_instructions if max_instructions is not None else DEFAULT_MAX_INSTRUCTIONS
+        self.max_instructions = max_instructions if max_instructions is not None else get_default_max_instructions()
         self.step_size = min(PROGRESS_STEP_SIZE, max(1, self.max_instructions // 10))
 
     def get_connection(self, limiter: Optional[QueryInstructionLimiter] = None) -> sqlite3.Connection:
