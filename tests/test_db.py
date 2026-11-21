@@ -197,11 +197,11 @@ class TestDatabaseManagerExecution:
         assert res["rows"][0][0] == 42
 
         # Verify Layer 1 (mode=ro) is directly enforced on the connection produced by mgr.get_connection().
-        # We strip Layer 2 (authorizer) and disable Layer 3 (query_only) directly on the production instance,
-        # proving that the production URI itself independently prevents mutations.
+        # We bypass Layer 2 (authorizer returning SQLITE_OK) and disable Layer 3 (query_only) directly on the production instance,
+        # proving that the production URI itself independently prevents mutations across all Python versions.
         ro_conn = mgr.get_connection()
         try:
-            ro_conn.set_authorizer(None)
+            ro_conn.set_authorizer(lambda *args: sqlite3.SQLITE_OK)
             ro_conn.execute("PRAGMA query_only = OFF;")
             with pytest.raises(sqlite3.OperationalError) as exc_info:
                 ro_conn.execute("INSERT INTO sample VALUES (99);")

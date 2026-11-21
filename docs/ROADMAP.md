@@ -100,3 +100,14 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * Tightened response bounding and access boundary descriptions in `SECURITY.md`.
   * Linked `docs/SCENARIO.md` in `README.md`.
 * **Completion Criteria:** All 76 tests pass with 91% code coverage, and the minimum bound installs and runs without errors.
+
+---
+
+## Milestone 9: Python 3.10 Compatibility & Dynamic Prompt Fencing
+* **Goal:** Full multi-version CI green status (Python 3.10–3.13) and robust dynamic code fencing in DBA prompt generation.
+* **Deliverables:**
+  * Resolved Python 3.10 `set_authorizer(None)` CPython bug in Layer 1 test isolation via `set_authorizer(lambda *args: sqlite3.SQLITE_OK)`.
+  * Dynamic multi-backtick fencing in `analyze_schema` preventing inner DDL blocks from closing prompt markdown fences.
+  * Integration test verifying dynamic fence expansion on table names with backticks and newlines.
+  * Calibrated threat model description in `SECURITY.md`.
+* **Completion Criteria:** All 77 tests pass on Python 3.10, 3.11, 3.12, and 3.13 with 91% coverage.

@@ -154,3 +154,9 @@ Using `from mcp.server.fastmcp import FastMCP`:
 - [x] Fence database schema markdown and sanitize prompt focus in `prompts.py`.
 - [x] Tighten `SECURITY.md` terminology (bounding response size, database-wide scope, untrusted prompt schema).
 - [x] Link `docs/SCENARIO.md` in `README.md`.
+
+### Phase 9: Python 3.10 Compatibility & Dynamic Prompt Fencing
+- [x] Fix Python 3.10 `set_authorizer(None)` issue in `test_db.py` via `set_authorizer(lambda *args: sqlite3.SQLITE_OK)`.
+- [x] Implement dynamic multi-backtick fencing in `src/sqlite_mcp/prompts.py`.
+- [x] Add dynamic fence test `test_analyze_schema_prompt_dynamic_fence_with_backticks` in `tests/test_mcp_tools.py`.
+- [x] Clarify structural formatting vs semantic injection in `SECURITY.md`.

@@ -216,3 +216,24 @@ Addressed reviewer follow-up regarding CI matrix execution fidelity, empirical `
 ### Verification Results
 * Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
 * Result: 76 passed in 4.68s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).
+
+---
+
+## [Completed] — Milestone 9: Python 3.10 Compatibility & Dynamic Prompt Fencing
+
+### Context & Refinement
+Addressed CI failure on Python 3.10 and reviewer feedback regarding prompt block integrity:
+1. Python 3.10 jobs failed in CI during Layer 1 test isolation because CPython 3.10 `sqlite3.Connection.set_authorizer(None)` does not unregister the authorizer hook (CPython issue bpo-44431).
+2. The schema fence in `analyze_schema` used a static 3-backtick fence (` ```markdown `), which collided with inner ```` ```sql ```` DDL blocks.
+3. The prompt sanitization claim in `SECURITY.md` needed precision: structural formatting breakouts are mitigated, but semantic instruction text is not filtered.
+
+### Accomplishments
+* **Python 3.10 Layer 1 Isolation Fix:** In `tests/test_db.py`, updated `test_uri_encoding_with_special_characters` to bypass Layer 2 via `ro_conn.set_authorizer(lambda *args: sqlite3.SQLITE_OK)` rather than `set_authorizer(None)`. This cleanly permits all actions at Layer 2 across Python 3.10, 3.11, 3.12, and 3.13, verifying that `ro_conn.execute("INSERT ...")` is rejected purely by Layer 1 (`mode=ro`). Verified locally against Python 3.10.22.
+* **Dynamic Multi-Backtick Fencing:** Refactored `analyze_schema` in `src/sqlite_mcp/prompts.py` to calculate fence length dynamically: `` "`" * max(4, max_run + 1) ``, where `max_run` is the longest consecutive run of backticks in `schema_markdown`. This guarantees that inner 3-backtick DDL blocks (```` ```sql ````) and backtick-containing identifiers cannot close the outer block early.
+* **Added Dynamic Fence Test:** Implemented `test_analyze_schema_prompt_dynamic_fence_with_backticks` in `tests/test_mcp_tools.py`, generating a database table with 4 consecutive backticks and verifying that the outer fence expands to 5 backticks, enclosing the entire schema.
+* **Calibrated Threat Model:** Updated `SECURITY.md` to state that dynamic fencing and whitespace flattening reduce structural formatting breakouts without claiming to neutralize semantic prompt injection.
+
+### Verification Results
+* Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
+* Result: 77 passed in 6.22s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).
+* Local Python 3.10 Verification: 77 passed in 4.00s.

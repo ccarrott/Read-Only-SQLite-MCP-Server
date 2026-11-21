@@ -35,7 +35,7 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
 ## Scope & Access Boundaries
 
 * **Database-Wide Read Access:** The server provides read-only access to all user tables and views in the opened database. There is currently no table-level allowlist or row-level redaction mechanism.
-* **Untrusted Database Content in Prompts:** Schema names, column names, and raw DDL injected into the `analyze_schema` prompt template originate from the database file and are treated as untrusted text. Schema content is explicitly fenced within markdown code blocks to mitigate prompt injection risks from malicious table or column names.
+* **Untrusted Database Content in Prompts:** Schema names, column names, and raw DDL injected into the `analyze_schema` prompt template originate from the database file and are treated as untrusted text. Schema content is dynamically enclosed in an outer markdown code fence longer than any backtick sequence in the schema (at least 4 backticks). This prevents inner code blocks (such as ```` ```sql ```` DDL) or identifier backticks from closing the block early, mitigating structural formatting breakouts. Note that enclosing untrusted content in fences reduces formatting-based injection but does not neutralize semantic prompt injection (instruction text embedded in schema names or focus arguments); LLM clients must treat prompt inputs from untrusted databases accordingly.
 
 ---
 
@@ -49,7 +49,7 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
 | SQL injection via identifiers with apostrophes (`it's_table`) | Parameterized table-valued PRAGMA functions (`pragma_table_info(?)`) |
 | Denial of Service via unindexed joins or runaway CTEs | Step progress handler instruction limits |
 | Data corruption or JSON-RPC protocol hijacking via stdout prints | Protocol isolation (`sys.stderr` exclusive logging) |
-| Prompt injection via database identifiers in DBA prompt | Fenced untrusted text blocks and parameter sanitization |
+| Formatting breakouts via database identifiers in DBA prompt | Dynamic multi-backtick fencing and whitespace flattening; reduces formatting breakouts but does not neutralize semantic instruction text |
 
 ---
 
