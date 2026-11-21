@@ -239,3 +239,4 @@ Diagnosed and resolved test failures on Windows Python 3.10 and hardened prompt 
 * Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
 * Result: 77 passed in 5.90s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).
 * Local Python 3.10.11 Windows Verification: Verified `describe_table` and `get_database_schema_markdown` pass cleanly on the official Python 3.10.11 Windows binary.
+* GitHub Actions CI Verification: All 9 matrix jobs succeeded on commit `2222c87` (Run ID `44958886423`) across Ubuntu and Windows runners (Python 3.10, 3.11, 3.12, 3.13) and the minimum dependency bound test (`mcp==1.22.0`).
