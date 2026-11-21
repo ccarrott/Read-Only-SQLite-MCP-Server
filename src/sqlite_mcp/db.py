@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from sqlite_mcp.security import (
     SecurityError,
+    introspection_authorizer,
     read_only_authorizer,
     validate_sql_statement,
 )
@@ -20,6 +21,7 @@ DEFAULT_ROW_LIMIT = 100
 MAX_ROW_LIMIT = 1000
 FALLBACK_MAX_INSTRUCTIONS = 10_000_000
 PROGRESS_STEP_SIZE = 10_000
+FALLBACK_MAX_VALUE_LENGTH = 10_000_000  # 10 MB limit for strings/blobs
 
 
 def get_default_max_instructions() -> int:
@@ -38,6 +40,24 @@ def get_default_max_instructions() -> int:
                 f"Warning: Invalid SQLITE_MAX_INSTRUCTIONS '{raw}'. Falling back to {FALLBACK_MAX_INSTRUCTIONS}.\n"
             )
     return FALLBACK_MAX_INSTRUCTIONS
+
+
+def get_default_max_value_length() -> int:
+    """Dynamically resolves default maximum string/blob length from environment, falling back safely on invalid values."""
+    raw = os.environ.get("SQLITE_MAX_VALUE_LENGTH")
+    if raw:
+        try:
+            val = int(raw.strip())
+            if val > 0:
+                return val
+            sys.stderr.write(
+                f"Warning: SQLITE_MAX_VALUE_LENGTH must be positive, got '{raw}'. Falling back to {FALLBACK_MAX_VALUE_LENGTH}.\n"
+            )
+        except ValueError:
+            sys.stderr.write(
+                f"Warning: Invalid SQLITE_MAX_VALUE_LENGTH '{raw}'. Falling back to {FALLBACK_MAX_VALUE_LENGTH}.\n"
+            )
+    return FALLBACK_MAX_VALUE_LENGTH
 
 
 class QueryInstructionLimiter:
@@ -78,12 +98,26 @@ def sanitize_row(row: Sequence[Any]) -> List[Any]:
 class DatabaseManager:
     """Manages read-only connections and safe query execution against SQLite databases."""
 
-    def __init__(self, db_path: Union[str, Path], max_instructions: Optional[int] = None):
+    def __init__(
+        self,
+        db_path: Union[str, Path],
+        max_instructions: Optional[int] = None,
+        max_value_length: Optional[int] = None,
+    ):
         self.db_path = Path(db_path).resolve()
-        self.max_instructions = max_instructions if max_instructions is not None else get_default_max_instructions()
+        self.max_instructions = (
+            max_instructions if max_instructions is not None else get_default_max_instructions()
+        )
+        self.max_value_length = (
+            max_value_length if max_value_length is not None else get_default_max_value_length()
+        )
         self.step_size = min(PROGRESS_STEP_SIZE, max(1, self.max_instructions // 10))
 
-    def get_connection(self, limiter: Optional[QueryInstructionLimiter] = None) -> sqlite3.Connection:
+    def get_connection(
+        self,
+        limiter: Optional[QueryInstructionLimiter] = None,
+        for_introspection: bool = False,
+    ) -> sqlite3.Connection:
         """Opens a protected, read-only connection adhering to 4-layer defense."""
         if not self.db_path.exists():
             raise FileNotFoundError(f"Database file not found: {self.db_path}")
@@ -96,7 +130,13 @@ class DatabaseManager:
         conn.execute("PRAGMA query_only = ON;")
 
         # Layer 2: Native SQLite C-level authorizer
-        conn.set_authorizer(read_only_authorizer)
+        if for_introspection:
+            conn.set_authorizer(introspection_authorizer)
+        else:
+            conn.set_authorizer(read_only_authorizer)
+            # Memory DoS protection on Python 3.11+: cap maximum value length in SQLite VM
+            if hasattr(conn, "setlimit") and hasattr(sqlite3, "SQLITE_LIMIT_LENGTH"):
+                conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, self.max_value_length)
 
         # Progress handler for query instruction limit
         if limiter is not None:
@@ -143,12 +183,18 @@ class DatabaseManager:
                 "limit_applied": clamped_limit,
                 "execution_time_ms": duration_ms,
             }
+        except sqlite3.OperationalError as e:
+            if "interrupted" in str(e).lower():
+                raise sqlite3.OperationalError(
+                    f"Query aborted: instruction limit exceeded ({self.max_instructions} virtual machine instructions)"
+                ) from e
+            raise
         finally:
             conn.close()
 
     def list_tables(self, include_internal: bool = False) -> List[Dict[str, Any]]:
         """Lists user tables, views, and index counts."""
-        conn = self.get_connection()
+        conn = self.get_connection(for_introspection=True)
         try:
             cursor = conn.cursor()
             cursor.execute(
@@ -186,23 +232,23 @@ class DatabaseManager:
 
     def describe_table(self, table_name: str) -> Dict[str, Any]:
         """Provides in-depth column definitions, constraints, foreign keys, and DDL for a table."""
-        conn = self.get_connection()
+        conn = self.get_connection(for_introspection=True)
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT type, sql FROM sqlite_master WHERE name = ? AND type IN ('table', 'view');",
+                "SELECT name, type, sql FROM sqlite_master WHERE name = ? COLLATE NOCASE AND type IN ('table', 'view');",
                 (table_name,),
             )
             obj = cursor.fetchone()
             if not obj:
                 raise ValueError(f"Table or view '{table_name}' does not exist.")
 
-            obj_type, ddl = obj[0], obj[1]
+            canonical_name, obj_type, ddl = obj[0], obj[1], obj[2]
 
             # 1. Column details: cid, name, type, notnull, dflt_value, pk
             cursor.execute(
                 'SELECT cid, name, type, "notnull", dflt_value, pk FROM pragma_table_info(?);',
-                (table_name,),
+                (canonical_name,),
             )
             raw_cols = cursor.fetchall()
             columns = [
@@ -220,7 +266,7 @@ class DatabaseManager:
             # 2. Foreign keys: id, seq, table, from, to, on_update, on_delete, match
             cursor.execute(
                 'SELECT id, seq, "table", "from", "to", on_update, on_delete FROM pragma_foreign_key_list(?);',
-                (table_name,),
+                (canonical_name,),
             )
             raw_fks = cursor.fetchall()
             foreign_keys = [
@@ -238,7 +284,7 @@ class DatabaseManager:
             # 3. Indexes
             cursor.execute(
                 'SELECT seq, name, "unique", origin, partial FROM pragma_index_list(?);',
-                (table_name,),
+                (canonical_name,),
             )
             raw_indexes = cursor.fetchall()
             indexes = []
@@ -249,7 +295,17 @@ class DatabaseManager:
                     'SELECT seqno, cid, name FROM pragma_index_info(?);',
                     (idx_name,),
                 )
-                idx_cols = [row[2] for row in cursor.fetchall()]
+                idx_cols = []
+                for row in cursor.fetchall():
+                    cid, col_name = row[1], row[2]
+                    if col_name is not None:
+                        idx_cols.append(col_name)
+                    elif cid == -2:
+                        idx_cols.append("<expression>")
+                    elif cid == -1:
+                        idx_cols.append("<rowid>")
+                    else:
+                        idx_cols.append("<unknown>")
                 indexes.append(
                     {
                         "name": idx_name,
@@ -259,7 +315,7 @@ class DatabaseManager:
                 )
 
             return {
-                "table_name": table_name,
+                "table_name": canonical_name,
                 "type": obj_type,
                 "ddl": ddl,
                 "columns": columns,
@@ -293,8 +349,13 @@ class DatabaseManager:
             if desc["foreign_keys"]:
                 lines.append("### Foreign Keys")
                 for fk in desc["foreign_keys"]:
+                    target = (
+                        f"{fk['table']}({fk['to_column']})"
+                        if fk["to_column"] is not None
+                        else f"{fk['table']} (PRIMARY KEY)"
+                    )
                     lines.append(
-                        f"- `{fk['from_column']}` -> `{fk['table']}({fk['to_column']})` (ON DELETE {fk['on_delete']})"
+                        f"- `{fk['from_column']}` -> `{target}` (ON DELETE {fk['on_delete']})"
                     )
                 lines.append("")
 

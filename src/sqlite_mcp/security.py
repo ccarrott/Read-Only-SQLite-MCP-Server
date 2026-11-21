@@ -77,18 +77,13 @@ def read_only_authorizer(
     db_name: Optional[str],
     trigger_name: Optional[str],
 ) -> int:
-    """Native C-level authorizer callback for SQLite execution engine.
+    """Strict native C-level authorizer callback for user query execution.
+
+    Denies all mutation actions unconditionally without exception.
 
     Returns:
         sqlite3.SQLITE_OK to allow, sqlite3.SQLITE_DENY to block.
     """
-    # SQLite versions prior to 3.44 (e.g. SQLite 3.40.1 bundled with Windows Python 3.10)
-    # issue SQLITE_UPDATE callbacks on internal schema tables (sqlite_master/sqlite_schema)
-    # when compiling table-valued pragma queries (pragma_table_info, pragma_foreign_key_list, etc.).
-    # Because sqlite_master cannot be modified by user queries anyway, permit internal schema queries.
-    if action_code == sqlite3.SQLITE_UPDATE and arg1 in INTERNAL_SCHEMA_TABLES:
-        return sqlite3.SQLITE_OK
-
     if action_code in FORBIDDEN_ACTIONS:
         return sqlite3.SQLITE_DENY
 
@@ -101,6 +96,26 @@ def read_only_authorizer(
         return sqlite3.SQLITE_DENY
 
     return sqlite3.SQLITE_OK
+
+
+def introspection_authorizer(
+    action_code: int,
+    arg1: Optional[str],
+    arg2: Optional[str],
+    db_name: Optional[str],
+    trigger_name: Optional[str],
+) -> int:
+    """Native C-level authorizer callback used strictly for schema introspection queries.
+
+    Accommodates an internal SQLite engine behavior observed on SQLite 3.40.1
+    (bundled with Windows Python 3.10), where compiling table-valued pragma queries
+    (pragma_table_info, pragma_foreign_key_list, etc.) triggers an internal SQLITE_UPDATE
+    callback on internal schema tables ('sqlite_master' / 'sqlite_schema').
+    """
+    if action_code == sqlite3.SQLITE_UPDATE and arg1 in INTERNAL_SCHEMA_TABLES:
+        return sqlite3.SQLITE_OK
+
+    return read_only_authorizer(action_code, arg1, arg2, db_name, trigger_name)
 
 
 def _strip_sql_comments_and_whitespace(sql: str) -> str:

@@ -40,7 +40,10 @@ class ForeignKeyInfo(BaseModel):
     id: int
     table: str
     from_column: str
-    to_column: str
+    to_column: Optional[str] = Field(
+        default=None,
+        description="Target column in parent table (None indicates implicit primary key reference)",
+    )
     on_update: str
     on_delete: str
 

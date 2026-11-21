@@ -134,7 +134,7 @@ class TestDatabaseManagerExecution:
             strict_mgr.execute_query(
                 "SELECT count(*) FROM (WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt WHERE x < 500000) SELECT * FROM cnt);"
             )
-        assert "interrupted" in str(exc_info.value).lower()
+        assert "instruction limit exceeded" in str(exc_info.value).lower()
 
     def test_mutation_query_rejection(self, db_manager: DatabaseManager) -> None:
         with pytest.raises(SecurityError):
@@ -249,3 +249,67 @@ class TestDatabaseManagerExecution:
         assert mgr_fallback.max_instructions == 10_000_000
         captured = capsys.readouterr()
         assert "Warning: Invalid SQLITE_MAX_INSTRUCTIONS 'not_a_number'" in captured.err
+
+    def test_case_insensitive_describe_table(self, db_manager: DatabaseManager) -> None:
+        # describe_table should succeed with uppercase or mixed case and return canonical name
+        desc = db_manager.describe_table("USERS")
+        assert desc["table_name"] == "users"
+        assert desc["type"] == "table"
+        assert len(desc["columns"]) > 0
+
+        desc_mixed = db_manager.describe_table("OrDeRs")
+        assert desc_mixed["table_name"] == "orders"
+
+    def test_implicit_foreign_key_handling(self, db_manager: DatabaseManager) -> None:
+        # audit_logs table references users without specifying column name (implicit PK reference)
+        desc = db_manager.describe_table("audit_logs")
+        assert desc["table_name"] == "audit_logs"
+        assert len(desc["foreign_keys"]) == 1
+        fk = desc["foreign_keys"][0]
+        assert fk["table"] == "users"
+        assert fk["from_column"] == "user_ref"
+        assert fk["to_column"] is None
+
+    def test_expression_index_handling(self, db_manager: DatabaseManager) -> None:
+        # products table has idx_products_lower_title ON products(lower(title))
+        desc = db_manager.describe_table("products")
+        expr_idx = next(
+            idx for idx in desc["indexes"] if idx["name"] == "idx_products_lower_title"
+        )
+        assert expr_idx["columns"] == ["<expression>"]
+
+    def test_schema_markdown_with_implicit_fk(self, db_manager: DatabaseManager) -> None:
+        schema_md = db_manager.get_database_schema_markdown()
+        assert "`user_ref` -> `users (PRIMARY KEY)`" in schema_md
+
+    def test_update_sqlite_master_rejected_and_schema_intact(self, db_manager: DatabaseManager) -> None:
+        initial_tables = db_manager.list_tables()
+        with pytest.raises((sqlite3.OperationalError, sqlite3.DatabaseError, SecurityError)) as exc_info:
+            db_manager.execute_query("WITH t AS (SELECT 1) UPDATE sqlite_master SET sql='corrupted';")
+        msg = str(exc_info.value).lower()
+        assert "may not be modified" in msg or "not authorized" in msg or "readonly" in msg
+        assert db_manager.list_tables() == initial_tables
+
+    def test_memory_value_length_limit_enforced_on_py311_plus(self, sample_db_path: Path) -> None:
+        mgr = DatabaseManager(sample_db_path, max_value_length=1000)
+        conn = mgr.get_connection()
+        try:
+            if hasattr(conn, "setlimit") and hasattr(sqlite3, "SQLITE_LIMIT_LENGTH"):
+                with pytest.raises((sqlite3.DataError, sqlite3.OperationalError)) as exc_info:
+                    conn.execute("SELECT zeroblob(5000);").fetchall()
+                assert "too big" in str(exc_info.value).lower()
+        finally:
+            conn.close()
+
+    def test_configurable_value_length_via_env(
+        self, sample_db_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+    ) -> None:
+        monkeypatch.setenv("SQLITE_MAX_VALUE_LENGTH", "5000000")
+        mgr_custom = DatabaseManager(sample_db_path)
+        assert mgr_custom.max_value_length == 5_000_000
+
+        monkeypatch.setenv("SQLITE_MAX_VALUE_LENGTH", "invalid_length")
+        mgr_fallback = DatabaseManager(sample_db_path)
+        assert mgr_fallback.max_value_length == 10_000_000
+        captured = capsys.readouterr()
+        assert "Warning: Invalid SQLITE_MAX_VALUE_LENGTH 'invalid_length'" in captured.err

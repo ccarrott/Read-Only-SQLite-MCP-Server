@@ -75,13 +75,14 @@ def read_only_authorizer(action_code, arg1, arg2, db_name, trigger_name):
 
 ### 2.2 Connection Management & Resilience (`db.py`)
 * Connection setup: `sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True, timeout=10.0)`.
-* Register `conn.set_authorizer(read_only_authorizer)`.
+* Register `conn.set_authorizer(read_only_authorizer)` for user queries; `conn.set_authorizer(introspection_authorizer)` for internal metadata introspection.
 * Execute `PRAGMA query_only = ON;`.
+* On Python 3.11+, enforce in-engine memory limit: `conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, max_value_length)`.
 * **BLOB & Data Formatting:** Convert query tuples using a custom row sanitizer:
   - `bytes` -> `f"<BLOB {len(val)} bytes>"`
   - `None` -> `None` (JSON `null`)
   - Strings $> 500$ chars -> `val[:500] + "... [truncated]"`
-* Register step progress handler: `conn.set_progress_handler(progress_callback, 10000)` to abort queries executing more than $1,000,000$ virtual VM instructions (preventing infinite loops or unindexed Cartesian joins).
+* Register step progress handler: `conn.set_progress_handler(progress_callback, step)` to abort queries executing more than `SQLITE_MAX_INSTRUCTIONS` virtual VM instructions (preventing infinite loops or unindexed Cartesian joins).
 
 ### 2.3 FastMCP Server Protocol (`server.py` & `tools.py`)
 Using `from mcp.server.fastmcp import FastMCP`:

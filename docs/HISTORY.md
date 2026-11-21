@@ -240,3 +240,46 @@ Diagnosed and resolved test failures on Windows Python 3.10 and hardened prompt 
 * Result: 77 passed in 5.90s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).
 * Local Python 3.10.11 Windows Verification: Verified `describe_table` and `get_database_schema_markdown` pass cleanly on the official Python 3.10.11 Windows binary.
 * GitHub Actions CI Verification: All 9 matrix jobs succeeded on commit `2222c87` (Run ID `44958886423`) across Ubuntu and Windows runners (Python 3.10, 3.11, 3.12, 3.13) and the minimum dependency bound test (`mcp==1.22.0`).
+
+---
+
+## [Completed] — Milestone 10: Schema Introspection Hardening, Memory DoS Defense & Authorizer Separation
+
+### Context & Refinement
+Addressed external review feedback regarding schema introspection validation edge cases, memory exhaustion protection, authorizer layer separation, and prompt escaping:
+1. `pragma_foreign_key_list` returns `to = NULL` when foreign keys are declared as `REFERENCES parent` without an explicit column name (implicit primary key reference). Pydantic's `ForeignKeyInfo.to_column: str` previously raised a `ValidationError`.
+2. `pragma_index_info` returns `name = NULL` for expression indexes (cid -2) and rowid indexes (cid -1), causing Pydantic's `IndexInfo.columns: List[str]` to fail validation.
+3. Instruction limits in progress handlers only bound CPU VM instructions, not in-engine memory allocation size. A single cheap query such as `SELECT zeroblob(50000000)` could allocate large memory structures with 0 progress callbacks.
+4. The authorizer exception for `sqlite_master` in Milestone 9 applied broadly to all connections. For clean defense-in-depth isolation, user queries should run under a 100% strict authorizer denying all mutations unconditionally, with the exception confined to an internal introspection authorizer.
+5. `describe_table` was case-sensitive, failing lookups like `describe_table("USERS")`.
+6. Progress handler interrupts returned a generic "interrupted" database error rather than explicitly identifying instruction limit exhaustion.
+7. Single quotes in the prompt `focus` parameter could break formatting in generated prompt text.
+8. `SECURITY.md` listed `0.1.x` as supported despite no published release tag.
+9. `docs/TESTING.md` had outdated `sql=` argument naming and "timeout" phrasing.
+
+### Accomplishments
+* **Pydantic Model & Introspection Edge Case Resolution:**
+  - In `src/sqlite_mcp/tools.py`, updated `ForeignKeyInfo.to_column` to `Optional[str] = Field(default=None, description="Target column in parent table (None indicates implicit primary key reference)")`.
+  - In `src/sqlite_mcp/db.py`, updated `describe_table` index processing: mapped NULL column names to `"<expression>"` when `cid == -2`, `"<rowid>"` when `cid == -1`, and `"<unknown>"` otherwise.
+  - In `src/sqlite_mcp/db.py`, updated `get_database_schema_markdown` to render `f"{fk['table']} (PRIMARY KEY)"` when `to_column` is `None`.
+  - Updated `tests/fixtures/create_sample_db.py` to add `audit_logs` (implicit FK referencing `users`) and expression index `idx_products_lower_title` on `products(lower(title))`.
+* **Memory DoS Protection (`conn.setlimit`):**
+  - Added `SQLITE_MAX_VALUE_LENGTH` environment variable support (default 10,000,000 bytes / 10 MB) with safe fallback and stderr diagnostic warning parsing.
+  - On Python 3.11+, calls `conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, self.max_value_length)` on query connections.
+  - Documented Python 3.10 limitation in `SECURITY.md` and `README.md` (Python 3.10 lacks CPython `Connection.setlimit()`).
+* **Authorizer Isolation for User Queries vs Introspection:**
+  - In `src/sqlite_mcp/security.py`, made `read_only_authorizer` strictly deny `SQLITE_UPDATE` unconditionally without exception.
+  - Defined `introspection_authorizer` permitting `SQLITE_UPDATE` on `INTERNAL_SCHEMA_TABLES` strictly for table-valued pragma compilation observed on SQLite 3.40.1 (Windows Python 3.10).
+  - In `DatabaseManager.get_connection`, added `for_introspection: bool = False` flag to attach `introspection_authorizer` strictly for `describe_table` and `list_tables`.
+* **Small Fixes & Documentation Alignments:**
+  - In `src/sqlite_mcp/db.py`, made `describe_table` case-insensitive via `WHERE name = ? COLLATE NOCASE` and used the retrieved canonical name for all subsequent pragma queries and response payload.
+  - In `src/sqlite_mcp/db.py`, formatted query interrupt errors as `Query aborted: instruction limit exceeded ({self.max_instructions} virtual machine instructions)`.
+  - In `src/sqlite_mcp/prompts.py`, escaped single quotes in `sanitized_focus` via `.replace("'", "\\'")`.
+  - Updated `docs/TESTING.md` (`query=` argument naming, instruction limit phrasing).
+  - Updated `SECURITY.md` supported versions to `main (active development)`, updated Layer 2 dual authorizer description, and added memory DoS mitigation row to threat model.
+  - Updated `README.md` and `mcp_config.json` with `SQLITE_MAX_VALUE_LENGTH`.
+
+### Verification Results
+* Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
+* Result: 88 passed in 5.80s with 91% overall coverage (`db.py` 97%, `tools.py` 95%, `security.py` 93%, `prompts.py` 100%, `resources.py` 100%).
+* Local Python 3.10 Windows binary: Verified `list_tables`, `describe_table` on `audit_logs` and `products`, case-insensitive `USERS`, and query execution pass cleanly on SQLite 3.40.1.

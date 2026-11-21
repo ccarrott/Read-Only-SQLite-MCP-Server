@@ -17,7 +17,7 @@ def test_sample_database_generation(sample_db_path: Path) -> None:
         # Check tables
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
         tables = [row[0] for row in cursor.fetchall() if not row[0].startswith("sqlite_")]
-        assert tables == ["orders", "products", "users"]
+        assert tables == ["audit_logs", "orders", "products", "users"]
 
         # Check view
         cursor.execute("SELECT name FROM sqlite_master WHERE type='view';")
@@ -30,6 +30,7 @@ def test_sample_database_generation(sample_db_path: Path) -> None:
         assert "idx_users_email" in indexes
         assert "idx_orders_user_id" in indexes
         assert "idx_orders_product_id" in indexes
+        assert "idx_products_lower_title" in indexes
 
         # Check data & BLOB column
         cursor.execute("SELECT name, avatar, bio FROM users WHERE id = 1;")
@@ -42,6 +43,8 @@ def test_sample_database_generation(sample_db_path: Path) -> None:
 
         # Check row counts
         cursor.execute("SELECT COUNT(*) FROM orders;")
+        assert cursor.fetchone()[0] == 3
+        cursor.execute("SELECT COUNT(*) FROM audit_logs;")
         assert cursor.fetchone()[0] == 3
     finally:
         conn.close()

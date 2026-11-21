@@ -22,8 +22,8 @@ def register_prompts(mcp: FastMCP, db_manager: DatabaseManager) -> None:
             focus: Specific area of attention (e.g., 'indexes', 'performance', 'normalization', 'general').
         """
         schema_markdown = db_manager.get_database_schema_markdown()
-        # Collapse whitespace to prevent formatting breakouts
-        sanitized_focus = " ".join(focus.split()) if focus else "general"
+        # Collapse whitespace and escape single quotes to prevent prompt formatting breakouts
+        sanitized_focus = " ".join(focus.split()).replace("'", "\\'") if focus else "general"
 
         # Compute dynamic fence length: at least 4 backticks and longer than any backtick run in the schema
         runs = re.findall(r"`+", schema_markdown)

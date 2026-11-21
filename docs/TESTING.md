@@ -34,7 +34,7 @@ Verifies execution behavior against real SQLite files and edge-case data types.
 
 * **Cell Truncation:** Text fields exceeding 500 characters must be truncated with `... [truncated]`.
 
-* **Progress Handler Timeout:** Long-running queries (e.g., cross joins on unindexed datasets) must trigger `sqlite3.OperationalError: interrupted` via the step progress handler.
+* **Progress Handler Instruction Limit:** Long-running queries (e.g., recursive CTEs or unindexed Cartesian joins) must trigger `sqlite3.OperationalError: Query aborted: instruction limit exceeded` via the VM step progress handler.
 
 ### 1.3 FastMCP Tool Tests (`tests/test_mcp_tools.py`)
 
@@ -42,9 +42,9 @@ Verifies JSON-RPC tool contracts.
 
 * `list_tables()` returns clean JSON listing all user tables and views.
 
-* `describe_table(table_name="users")` returns column definitions, constraints, foreign keys, and raw DDL.
+* `describe_table(table_name="users")` returns column definitions, constraints, foreign keys, and raw DDL. Handles implicit foreign keys (`to = NULL`) and expression indexes (`name = NULL`).
 
-* `execute_query(sql="SELECT 1")` returns formatted JSON payload with execution timing.
+* `execute_query(query="SELECT 1")` returns formatted JSON payload with execution timing.
 
 * `read_resource(uri="sqlite://schema")` returns full database schema markdown.
 

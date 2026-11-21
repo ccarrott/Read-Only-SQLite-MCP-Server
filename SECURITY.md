@@ -4,8 +4,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| `0.1.x` | :white_check_mark: |
-| `main`  | :white_check_mark: |
+| `main` (active development) | :white_check_mark: |
 
 ---
 
@@ -17,7 +16,7 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
    Connections are opened strictly using SQLite URI filenames percent-encoded via `Path.resolve().as_uri() + "?mode=ro"`. This prevents writes at the operating system file descriptor and virtual file system (VFS) layer. Even if internal SQL checks were bypassed, the filesystem driver rejects any write attempt with `sqlite3.OperationalError: attempt to write a readonly database`.
 
 2. **Layer 2: Native Engine Authorizer (`conn.set_authorizer`)**
-   A native SQLite C authorizer callback hook inspects every action before the database engine compiles or plans the query. Any action attempting to insert, update, delete, drop, alter, attach, detach, or modify database pragma state is intercepted and returned `SQLITE_DENY`.
+   A native SQLite C authorizer callback hook inspects every action before the database engine compiles or plans the query. User queries executed via `execute_query` run under a strict authorizer that unconditionally denies all mutation actions (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `ATTACH`, `DETACH`, etc.). A dedicated introspection authorizer is used strictly for internal metadata queries (`describe_table`, `list_tables`) to accommodate an internal engine behavior observed on SQLite 3.40.1 (bundled in Windows Python 3.10), where compiling table-valued pragma functions issues an internal `SQLITE_UPDATE` callback on `sqlite_master`.
 
 3. **Layer 3: Pragma Enforcement (`PRAGMA query_only = ON`)**
    Activated immediately upon database connection creation, locking the SQLite engine state to query-only mode.
@@ -26,7 +25,8 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
    Queries are inspected to ensure they start strictly with allowed read keywords (`SELECT`, `EXPLAIN`, `WITH`). Stacked statements (multiple SQL statements separated by semicolons) are blocked across all SQLite quotation formats (single quotes, double quotes, bracketed identifiers `[...]`, and backticks `` `...` ``).
 
 ### Additional Operational Safeguards
-* **Virtual Machine Instruction Limiting:** Runaway queries (e.g., circular recursive CTEs or unindexed Cartesian joins) are bounded by SQLite's virtual machine progress handler (`SQLITE_MAX_INSTRUCTIONS`, default 10,000,000 instructions) to prevent resource exhaustion.
+* **Virtual Machine Instruction Limiting (CPU DoS):** Runaway queries (e.g., circular recursive CTEs or unindexed Cartesian joins) are bounded by SQLite's virtual machine progress handler (`SQLITE_MAX_INSTRUCTIONS`, default 10,000,000 instructions) to prevent CPU resource exhaustion.
+* **Value Length Limiting (Memory DoS):** On Python 3.11+, connections enforce an in-engine value size ceiling using `conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, ...)` (`SQLITE_MAX_VALUE_LENGTH`, default 10,000,000 bytes / 10 MB) to prevent queries like `SELECT zeroblob(50000000)` from exhausting host memory within the instruction budget. *Note: Python 3.10 lacks the `Connection.setlimit()` CPython API; on Python 3.10, memory protection relies on the host OS process memory limits.*
 * **Safe Serialization:** Binary `BLOB` fields are formatted as `<BLOB N bytes>`, and oversized text cells are truncated at 500 characters to bound response size and prevent JSON serialization errors (`TypeError`).
 * **Stdio Hygiene:** All application diagnostics and error logging are routed strictly to `sys.stderr`, guaranteeing that `sys.stdout` remains uncorrupted JSON-RPC 2.0 frames.
 
@@ -47,7 +47,8 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
 | Multi-statement injection (`SELECT 1; DROP TABLE users;`) | Layer 4 (Scanner) & Layer 2 (Authorizer) |
 | Special characters in database paths (`#`, `?`, `%`) attempting URI injection | Layer 1 (RFC 3986 Percent-Encoding) |
 | SQL injection via identifiers with apostrophes (`it's_table`) | Parameterized table-valued PRAGMA functions (`pragma_table_info(?)`) |
-| Denial of Service via unindexed joins or runaway CTEs | Step progress handler instruction limits |
+| Denial of Service (CPU exhaustion via runaway CTEs / cartesian joins) | Step progress handler instruction limits (`SQLITE_MAX_INSTRUCTIONS`, default 10M instructions) |
+| Denial of Service (Memory exhaustion via oversized value allocations, e.g. `zeroblob(50000000)`) | Value size limits via `conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, ...)` (`SQLITE_MAX_VALUE_LENGTH`, default 10MB) on Python 3.11+. Python 3.10 lacks `setlimit` and relies on OS process limits. |
 | Data corruption or JSON-RPC protocol hijacking via stdout prints | Protocol isolation (`sys.stderr` exclusive logging) |
 | Formatting breakouts via database identifiers in DBA prompt | Dynamic multi-backtick fencing and whitespace flattening; reduces formatting breakouts but does not neutralize semantic instruction text |
 

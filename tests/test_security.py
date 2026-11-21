@@ -10,6 +10,7 @@ from sqlite_mcp.security import (
     FORBIDDEN_ACTIONS,
     SecurityError,
     has_stacked_statements,
+    introspection_authorizer,
     read_only_authorizer,
     validate_sql_statement,
 )
@@ -138,3 +139,33 @@ class TestNativeEngineAuthorizer:
         with pytest.raises(sqlite3.DatabaseError) as exc_info:
             cursor.execute(mutation_sql)
         assert "not authorized" in str(exc_info.value).lower()
+
+    def test_strict_authorizer_denies_update_unconditionally(self) -> None:
+        """The strict read_only_authorizer must unconditionally deny SQLITE_UPDATE across all tables."""
+        assert (
+            read_only_authorizer(sqlite3.SQLITE_UPDATE, "sqlite_master", None, "main", None)
+            == sqlite3.SQLITE_DENY
+        )
+        assert (
+            read_only_authorizer(sqlite3.SQLITE_UPDATE, "sqlite_schema", None, "main", None)
+            == sqlite3.SQLITE_DENY
+        )
+        assert (
+            read_only_authorizer(sqlite3.SQLITE_UPDATE, "users", None, "main", None)
+            == sqlite3.SQLITE_DENY
+        )
+
+    def test_introspection_authorizer_isolation(self) -> None:
+        """The introspection authorizer permits internal schema updates (observed on SQLite 3.40.1) but denies user tables."""
+        assert (
+            introspection_authorizer(sqlite3.SQLITE_UPDATE, "sqlite_master", None, "main", None)
+            == sqlite3.SQLITE_OK
+        )
+        assert (
+            introspection_authorizer(sqlite3.SQLITE_UPDATE, "sqlite_schema", None, "main", None)
+            == sqlite3.SQLITE_OK
+        )
+        assert (
+            introspection_authorizer(sqlite3.SQLITE_UPDATE, "users", None, "main", None)
+            == sqlite3.SQLITE_DENY
+        )

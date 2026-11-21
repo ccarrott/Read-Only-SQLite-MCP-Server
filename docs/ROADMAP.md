@@ -112,3 +112,19 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * Integration test verifying dynamic fence expansion on table names with backticks and newlines.
   * Calibrated threat model description in `SECURITY.md`.
 * **Completion Criteria:** All 77 tests pass on Python 3.10, 3.11, 3.12, and 3.13 with 91% coverage.
+
+---
+
+## Milestone 10: Schema Introspection Hardening, Memory DoS Defense & Authorizer Separation
+* **Goal:** Resolve schema introspection validation failures, implement in-engine value size limits against memory exhaustion, separate user query vs metadata authorizers, and refine prompt argument escaping.
+* **Deliverables:**
+  * `ForeignKeyInfo.to_column` made `Optional[str]` to support implicit primary key references (`REFERENCES parent`).
+  * Mapped expression and rowid index NULL column names to `"<expression>"` and `"<rowid>"`.
+  * Added implicit foreign key and expression index fixtures to `create_sample_db.py`.
+  * Case-insensitive table lookup in `describe_table` using `COLLATE NOCASE`.
+  * Clear `Query aborted: instruction limit exceeded` error message on progress handler interrupts.
+  * Memory DoS mitigation via `conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, ...)` (`SQLITE_MAX_VALUE_LENGTH`, default 10MB) on Python 3.11+, with documented Python 3.10 boundary.
+  * Authorizer separation: strict `read_only_authorizer` denying `SQLITE_UPDATE` unconditionally on user queries, and `introspection_authorizer` accommodating SQLite 3.40.1 compilation behavior strictly on internal metadata queries.
+  * Prompt single-quote escaping in `focus` argument.
+  * Updated `SECURITY.md`, `TESTING.md`, `README.md`, and `mcp_config.json`.
+* **Completion Criteria:** All 88 automated tests pass across test suites with 91% coverage.

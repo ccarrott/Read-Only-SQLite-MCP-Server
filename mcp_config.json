@@ -10,7 +10,8 @@
       ],
       "env": {
         "LOG_LEVEL": "INFO",
-        "SQLITE_MAX_INSTRUCTIONS": "10000000"
+        "SQLITE_MAX_INSTRUCTIONS": "10000000",
+        "SQLITE_MAX_VALUE_LENGTH": "10000000"
       }
     }
   }

@@ -64,12 +64,25 @@ def create_sample_database(db_path: str | Path) -> Path:
             """
         )
 
-        # 4. Indexes
+        # 4. Audit logs table with implicit foreign key (no column named in REFERENCES users)
+        cursor.execute(
+            """
+            CREATE TABLE audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_ref INTEGER REFERENCES users ON DELETE SET NULL,
+                action TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+
+        # 5. Indexes (including expression index)
         cursor.execute("CREATE INDEX idx_users_email ON users(email);")
         cursor.execute("CREATE INDEX idx_orders_user_id ON orders(user_id);")
         cursor.execute("CREATE INDEX idx_orders_product_id ON orders(product_id);")
+        cursor.execute("CREATE INDEX idx_products_lower_title ON products(lower(title));")
 
-        # 5. View
+        # 6. View
         cursor.execute(
             """
             CREATE VIEW order_summary AS
@@ -122,6 +135,16 @@ def create_sample_database(db_path: str | Path) -> Path:
         cursor.executemany(
             "INSERT INTO orders (user_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?);",
             orders_data,
+        )
+
+        audit_data = [
+            (1, "LOGIN_SUCCESS"),
+            (2, "PROFILE_UPDATE"),
+            (None, "SYSTEM_STARTUP"),
+        ]
+        cursor.executemany(
+            "INSERT INTO audit_logs (user_ref, action) VALUES (?, ?);",
+            audit_data,
         )
 
         conn.commit()
