@@ -147,3 +147,10 @@ Using `from mcp.server.fastmcp import FastMCP`:
 - [x] Emit `sys.stderr` warning on invalid `SQLITE_MAX_INSTRUCTIONS` values.
 - [x] Remove dead code (`QueryInstructionLimiter.reset()`).
 - [x] Reorganize documentation into `docs/` and add `.github/workflows/ci.yml` and `SECURITY.md`.
+
+### Phase 8: CI Matrix Isolation, Pin Verification & Security Boundary Tightening
+- [x] Configure CI workflow to use `actions/setup-python@v5`, logging `python --version` and adding a minimum bound test job.
+- [x] Empirically verify `mcp>=1.22.0,<2.0.0` as the verified lower bound for structured output schemas and Pydantic compatibility.
+- [x] Fence database schema markdown and sanitize prompt focus in `prompts.py`.
+- [x] Tighten `SECURITY.md` terminology (bounding response size, database-wide scope, untrusted prompt schema).
+- [x] Link `docs/SCENARIO.md` in `README.md`.

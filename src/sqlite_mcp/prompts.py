@@ -20,15 +20,19 @@ def register_prompts(mcp: FastMCP, db_manager: DatabaseManager) -> None:
             focus: Specific area of attention (e.g., 'indexes', 'performance', 'normalization', 'general').
         """
         schema_markdown = db_manager.get_database_schema_markdown()
+        # Sanitize single-line focus argument to avoid prompt formatting injection
+        sanitized_focus = " ".join(focus.split()) if focus else "general"
 
         return (
-            f"You are an expert SQLite database administrator.\n"
-            f"Please conduct an in-depth audit of the database schema below, focusing on '{focus}'.\n\n"
-            f"### Target Database Schema:\n"
-            f"{schema_markdown}\n\n"
-            f"### Review Guidelines:\n"
-            f"1. Examine table normalization, data types, and nullability constraints.\n"
-            f"2. Audit index coverage, specifically checking foreign keys and join candidates for missing indexes.\n"
-            f"3. Check for potential query performance bottlenecks.\n"
-            f"4. Propose safe, non-destructive migration suggestions if improvements are needed."
+            "You are an expert SQLite database administrator.\n"
+            f"Please conduct an in-depth audit of the database schema below, focusing on '{sanitized_focus}'.\n\n"
+            "### Target Database Schema (Untrusted Database Content):\n"
+            "```markdown\n"
+            f"{schema_markdown}\n"
+            "```\n\n"
+            "### Review Guidelines:\n"
+            "1. Examine table normalization, data types, and nullability constraints.\n"
+            "2. Audit index coverage, specifically checking foreign keys and join candidates for missing indexes.\n"
+            "3. Check for potential query performance bottlenecks.\n"
+            "4. Propose safe, non-destructive migration suggestions if improvements are needed."
         )

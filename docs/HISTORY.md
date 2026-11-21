@@ -190,3 +190,29 @@ Addressed final code review points:
 ### Verification Results
 * Command: `pytest -v`
 * Result: 76 passed in 3.58s across all test suites.
+
+---
+
+## [Completed] — Milestone 8: CI Matrix Isolation, Pin Verification & Security Boundary Tightening
+
+### Context & Refinement
+Addressed reviewer follow-up regarding CI matrix execution fidelity, empirical `mcp` SDK version constraints for structured output, and security documentation tightening:
+1. `uv python install` in CI does not add the installed interpreter to system `PATH`, causing matrix jobs to execute on the runner default Python.
+2. `mcp` lower bound needed verification against PyPI and Git changelog for structured output (`outputSchema`) and Pydantic compatibility.
+3. `SECURITY.md` tightened to state "bound response size", document database-wide read scope, and address untrusted database content in prompt generation.
+4. Fenced schema text and sanitized prompt arguments in `analyze_schema`.
+5. Missing `docs/SCENARIO.md` link added to `README.md`.
+
+### Accomplishments
+* **CI Python Matrix Correction:** Updated `.github/workflows/ci.yml` to use `actions/setup-python@v5` with `python-version: ${{ matrix.python-version }}` and standard `python -m pip install -e ".[dev]"`. Added an explicit `python --version` verification step and an automated `test-min-bound` job testing against `mcp==1.22.0` on Python 3.10.
+* **Empirical `mcp` Version Verification:**
+  - Researched SDK repository: PR #993 ("feat: Add structured output support for tool functions") introduced `outputSchema` generation in `mcp v1.10.0` (published 2025-06-26).
+  - Identified and tested Pydantic compatibility: `mcp 1.10.0` through `1.21.0` attempt to import `pydantic._internal._typing_extra.eval_type_backport`, raising `ImportError` on modern Pydantic releases (`>=2.14`).
+  - Empirically tested versions in an isolated environment: `mcp 1.22.0` is the earliest version resolving the Pydantic import issue while supporting structured output schemas.
+  - Set lower bound to `mcp>=1.22.0,<2.0.0` in `pyproject.toml` and verified all 76 tests pass cleanly.
+* **Prompt Hardening & Testing:** In `src/sqlite_mcp/prompts.py`, wrapped database schema markdown in explicit fences (`### Target Database Schema (Untrusted Database Content):\n```markdown ... ````) and sanitized the `focus` parameter to single-line text (`" ".join(focus.split())`). Updated `tests/test_mcp_tools.py` with multi-line injection sanitization assertions.
+* **Documentation Calibration:** Tightened `SECURITY.md` (bounded response size, database-wide access boundary, untrusted prompt schema context) and added `docs/SCENARIO.md` to `README.md`.
+
+### Verification Results
+* Command: `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing`
+* Result: 76 passed in 4.68s with 91% overall coverage (`db.py` 99%, `tools.py` 95%, `security.py` 92%).

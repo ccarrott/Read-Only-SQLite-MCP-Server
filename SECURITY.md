@@ -27,8 +27,15 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
 
 ### Additional Operational Safeguards
 * **Virtual Machine Instruction Limiting:** Runaway queries (e.g., circular recursive CTEs or unindexed Cartesian joins) are bounded by SQLite's virtual machine progress handler (`SQLITE_MAX_INSTRUCTIONS`, default 10,000,000 instructions) to prevent resource exhaustion.
-* **Safe Serialization:** Binary `BLOB` fields are formatted as `<BLOB N bytes>`, and oversized text cells are truncated at 500 characters to prevent buffer exhaustion and JSON serialization errors (`TypeError`).
+* **Safe Serialization:** Binary `BLOB` fields are formatted as `<BLOB N bytes>`, and oversized text cells are truncated at 500 characters to bound response size and prevent JSON serialization errors (`TypeError`).
 * **Stdio Hygiene:** All application diagnostics and error logging are routed strictly to `sys.stderr`, guaranteeing that `sys.stdout` remains uncorrupted JSON-RPC 2.0 frames.
+
+---
+
+## Scope & Access Boundaries
+
+* **Database-Wide Read Access:** The server provides read-only access to all user tables and views in the opened database. There is currently no table-level allowlist or row-level redaction mechanism.
+* **Untrusted Database Content in Prompts:** Schema names, column names, and raw DDL injected into the `analyze_schema` prompt template originate from the database file and are treated as untrusted text. Schema content is explicitly fenced within markdown code blocks to mitigate prompt injection risks from malicious table or column names.
 
 ---
 
@@ -42,6 +49,7 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
 | SQL injection via identifiers with apostrophes (`it's_table`) | Parameterized table-valued PRAGMA functions (`pragma_table_info(?)`) |
 | Denial of Service via unindexed joins or runaway CTEs | Step progress handler instruction limits |
 | Data corruption or JSON-RPC protocol hijacking via stdout prints | Protocol isolation (`sys.stderr` exclusive logging) |
+| Prompt injection via database identifiers in DBA prompt | Fenced untrusted text blocks and parameter sanitization |
 
 ---
 
@@ -50,8 +58,8 @@ This server is designed to allow LLM agents to inspect SQLite databases safely. 
 If you discover a security vulnerability or bypass in any defense layer, please do **not** open a public issue.
 
 Instead, please report it privately:
+* **GitHub:** Through the [GitHub Security Advisory private reporting form](https://github.com/ccarrott/Read-Only-SQLite-MCP-Server/security/advisories/new) on the repository.
 * **Email:** [sethwhitfield113@gmail.com](mailto:sethwhitfield113@gmail.com)
-* **GitHub:** Through the GitHub Security Advisory private reporting form on the repository.
 
 Please include:
 1. Description of the vulnerability and attack vector.

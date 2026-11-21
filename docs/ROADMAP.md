@@ -88,3 +88,15 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * GitHub Actions CI workflow (`.github/workflows/ci.yml`) and `SECURITY.md`.
   * Clean repository structure with documentation located in `docs/`.
 * **Completion Criteria:** All 76 tests pass across all test suites, CI workflow configured, clean repository layout.
+
+---
+
+## Milestone 8: CI Matrix Isolation, Pin Verification & Security Boundary Tightening
+* **Goal:** Reliable CI matrix execution across Python versions, empirical dependency lower-bound pin, and tightened security documentation.
+* **Deliverables:**
+  * CI workflow using `actions/setup-python@v5`, explicit `python --version` logging, and minimum bound test job.
+  * Verified lower-bound dependency pin `mcp>=1.22.0,<2.0.0` based on structured output support and Pydantic compatibility.
+  * Prompt schema markdown fencing and focus argument sanitization.
+  * Tightened response bounding and access boundary descriptions in `SECURITY.md`.
+  * Linked `docs/SCENARIO.md` in `README.md`.
+* **Completion Criteria:** All 76 tests pass with 91% code coverage, and the minimum bound installs and runs without errors.

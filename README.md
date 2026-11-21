@@ -131,6 +131,7 @@ The test suite verifies:
 
 Detailed project architecture, testing strategies, and change logs are organized in the `docs/` directory:
 
+* [`docs/SCENARIO.md`](docs/SCENARIO.md) — Requirements, constraints, security boundaries, and product definition.
 * [`docs/PLAN.md`](docs/PLAN.md) — Architectural design, module layout, and implementation breakdown.
 * [`docs/ROADMAP.md`](docs/ROADMAP.md) — Project milestones, execution stages, and verification criteria.
 * [`docs/TESTING.md`](docs/TESTING.md) — Test suite design, edge-case testing matrices, and agent verification checklists.
