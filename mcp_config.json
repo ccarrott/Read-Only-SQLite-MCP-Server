@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "sqlite-explorer": {
+      "command": "python",
+      "args": [
+        "-m",
+        "sqlite_mcp.server",
+        "--db-path",
+        "sample.db"
+      ],
+      "env": {
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
