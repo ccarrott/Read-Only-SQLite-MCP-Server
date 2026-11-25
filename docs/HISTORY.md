@@ -224,7 +224,7 @@ Addressed reviewer follow-up regarding CI matrix execution fidelity, empirical `
 ### Context & Refinement
 Diagnosed and resolved test failures on Windows Python 3.10 and hardened prompt generation:
 1. In Python 3.10 CPython, calling `conn.set_authorizer(None)` does not unregister the authorizer callback due to upstream issue bpo-44431, affecting Layer 1 test isolation.
-2. In Windows Python 3.10 (3.10.11), which bundles SQLite 3.40.1, querying table-valued pragma functions (`pragma_table_info`, `pragma_foreign_key_list`, `pragma_index_list`, `pragma_index_info`) triggers an internal SQLite authorizer callback with `action_code == SQLITE_UPDATE` (23) on `arg1='sqlite_master'`. In SQLite versions prior to 3.44, this caused `read_only_authorizer` to reject schema introspection with `OperationalError: not authorized`.
+2. In Windows Python 3.10 (3.10.11), which bundles SQLite 3.40.1, querying table-valued pragma functions (`pragma_table_info`, `pragma_foreign_key_list`, `pragma_index_list`, `pragma_index_info`) triggers an internal SQLite authorizer callback with `action_code == SQLITE_UPDATE` (23) on `arg1='sqlite_master'`. In SQLite versions prior to 3.44 *(later clarified in Milestone 10: only SQLite 3.40.1 was directly observed)*, this caused `read_only_authorizer` to reject schema introspection with `OperationalError: not authorized`.
 3. The schema fence in `analyze_schema` used a static 3-backtick fence (` ```markdown `), which collided with inner ```` ```sql ```` DDL blocks.
 4. The prompt sanitization claim in `SECURITY.md` needed precision: structural formatting breakouts are mitigated, but semantic instruction text is not filtered.
 
@@ -284,3 +284,34 @@ Addressed external review feedback regarding schema introspection validation edg
 * Result: 88 passed in 5.80s with 91% overall coverage (`db.py` 97%, `tools.py` 95%, `security.py` 93%, `prompts.py` 100%, `resources.py` 100%).
 * Local Python 3.10 Windows binary: Verified `list_tables`, `describe_table` on `audit_logs` and `products`, case-insensitive `USERS`, and query execution pass cleanly on SQLite 3.40.1.
 * GitHub Actions CI Verification: All 9 matrix jobs succeeded on commit `98f5f51` (Run ID `44960836150`) across Ubuntu and Windows runners (Python 3.10, 3.11, 3.12, 3.13) and the minimum dependency bound test (`mcp==1.22.0`).
+
+---
+
+## [2026-11-25] [Completed] — Milestone 11: MCP Tool Annotations, M8ven Trust Index Listing & Repo Polish
+
+### Context & M8ven Listing
+* On 2026-11-25, received outreach from M8ven (`notifications@m8ven.ai`) regarding the M8ven Trust Index listing for this repository: `https://m8ven.ai/mcp/ccarrott/read-only-sqlite-mcp-server`.
+* M8ven scanned commit `de8aa94` (15 Python files) on 2026-11-21 with a Grade of **C ("Emerging")** due to repo age. Security checks reported clean (no credential exfiltration, no sensitive file access, no obfuscation).
+* The sole issue flagged was missing MCP tool annotations on all three tools (`list_tables`, `describe_table`, `execute_query`), which directories such as OpenAI's app directory require (specifically all four hints).
+* Claimed the listing for Verified Publisher status via README badge proof while choosing not to install M8ven's "Connect Live" GitHub App.
+
+### Accomplishments
+* **MCP Tool Annotations (`src/sqlite_mcp/tools.py`):**
+  - Verified `FastMCP.tool()` in the installed `mcp` SDK (`1.30.0`) accepts `annotations: ToolAnnotations | None = None` from `mcp.types`.
+  - Audited `execute_query` against DML/DDL via `WITH` and `EXPLAIN`, write `PRAGMA` calls (`PRAGMA writable_schema`, `pragma_query_only('OFF')`, `pragma_user_version`), `ATTACH`, `load_extension`, `fts3_tokenizer`, virtual table DDL, transactions, and WAL-mode readonly reads, confirming `execute_query` cannot write to the database.
+  - Defined `READ_ONLY_ANNOTATIONS = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)` and attached it explicitly to `@mcp.tool(...)` for `list_tables`, `describe_table`, and `execute_query`.
+* **M8ven Ownership Badge (`README.md`):**
+  - Added the exact M8ven verification badge line directly under the `README.md` title preserving the `?v=` ownership proof token verbatim.
+* **Security & Test Polish:**
+  - Added `sqlite3.SQLITE_CREATE_VTABLE`, `sqlite3.SQLITE_DROP_VTABLE`, and `sqlite3.SQLITE_TRANSACTION` to `FORBIDDEN_ACTIONS` in `src/sqlite_mcp/security.py`.
+  - Added `test_all_tools_expose_read_only_annotations` in `tests/test_mcp_tools.py`, verified JSON-RPC wire serialization of `annotations` in `tests/test_server_stdio.py`, and added virtual table / transaction test cases in `tests/test_security.py`.
+  - Renamed `test_progress_handler_timeout` -> `test_progress_handler_instruction_limit` in `tests/test_db.py` for terminology consistency.
+* **Documentation & Repository Hygiene:**
+  - Documented MCP tool annotations in `README.md`, `SECURITY.md`, `docs/SCENARIO.md`, and `docs/TESTING.md`.
+  - Updated `README.md` Layer 2 summary to note strict vs introspection authorizer separation, and corrected `docs/TESTING.md` (`not authorized` error message and synced `mcp_config.json` snippet).
+  - Updated `docs/PLAN.md` (illustrative `security.py` snippet, `audit_logs` note, Phases 10–11) and `docs/ROADMAP.md` (expanded ASCII chart, `[Completed]` tags, Milestone 11).
+  - Added `.venv*/` to `.gitignore` and clarified Python 3.10 `bpo-44431` authorizer note in `GEMINI.md` without removing existing rules or factual history.
+
+### Verification Results
+* `.venv` (Python `3.12.10`, SQLite `3.49.1`, `mcp 1.30.0`): `python -m pytest -v --cov=sqlite_mcp --cov-report=term-missing` -> **94 passed in 5.42s** with **91% overall coverage** (`__init__.py` 100%, `prompts.py` 100%, `resources.py` 100%, `db.py` 97%, `tools.py` 95%, `security.py` 93%, `server.py` 58%).
+* `.venv310` (Python `3.10.22`, SQLite `3.53.1`, `mcp 1.30.0`): `python -m pytest -v` -> **94 passed in 5.11s**.

@@ -33,7 +33,7 @@
 * **Calm Open-Source Tone:** Keep READMEs and documentation grounded and factual. Avoid marketing adjectives ("high-performance", "bulletproof") unless backed by published benchmarks.
 
 ### 2.6 Defense Layer Test Isolation
-* **Test Each Layer Independently on Production Objects:** When writing tests for multi-layer security systems, verify each layer in isolation on the connection returned by the production factory (`mgr.get_connection()`). Strip higher layers (`conn.set_authorizer(None)`, `PRAGMA query_only = OFF`) to prove lower layers independently block mutations.
+* **Test Each Layer Independently on Production Objects:** When writing tests for multi-layer security systems, verify each layer in isolation on the connection returned by the production factory (`mgr.get_connection()`). Strip higher layers (`conn.set_authorizer(None)` — or `lambda *args: sqlite3.SQLITE_OK` on Python 3.10 due to CPython bpo-44431 — and `PRAGMA query_only = OFF`) to prove lower layers independently block mutations.
 
 ### 2.7 Dynamic & Resilient Environment Configuration
 * **No Fragile Module-Level Int Casts:** Never parse environment variables with raw `int(os.environ.get(...))` at module root. Always parse via a dynamic helper that validates positive integers and falls back safely, emitting a diagnostic warning to `sys.stderr` on invalid strings.

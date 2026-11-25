@@ -59,6 +59,8 @@ class TestStatementValidator:
             ("CREATE TABLE evil (id INT)", "forbidden"),
             ("ATTACH DATABASE 'other.db' AS other", "forbidden"),
             ("PRAGMA writable_schema = ON", "forbidden"),
+            ("CREATE VIRTUAL TABLE v USING fts5(x)", "forbidden"),
+            ("BEGIN TRANSACTION", "forbidden"),
             ("", "empty"),
             ("   ", "empty"),
             ("-- only a comment\n", "only comments"),
@@ -130,6 +132,8 @@ class TestNativeEngineAuthorizer:
             "ATTACH DATABASE 'evil.db' AS evil",
             "PRAGMA writable_schema = ON",
             "PRAGMA foreign_keys = OFF",
+            "CREATE VIRTUAL TABLE evil_fts USING fts5(content)",
+            "BEGIN TRANSACTION",
         ],
     )
     def test_mutations_blocked_by_engine_authorizer(
@@ -167,5 +171,20 @@ class TestNativeEngineAuthorizer:
         )
         assert (
             introspection_authorizer(sqlite3.SQLITE_UPDATE, "users", None, "main", None)
+            == sqlite3.SQLITE_DENY
+        )
+
+    def test_strict_authorizer_denies_vtable_and_transaction(self) -> None:
+        """Virtual table and transaction actions must be explicitly denied by read_only_authorizer."""
+        assert (
+            read_only_authorizer(sqlite3.SQLITE_CREATE_VTABLE, "v", "fts5", "main", None)
+            == sqlite3.SQLITE_DENY
+        )
+        assert (
+            read_only_authorizer(sqlite3.SQLITE_DROP_VTABLE, "v", "fts5", "main", None)
+            == sqlite3.SQLITE_DENY
+        )
+        assert (
+            read_only_authorizer(sqlite3.SQLITE_TRANSACTION, "BEGIN", None, None, None)
             == sqlite3.SQLITE_DENY
         )

@@ -1,5 +1,7 @@
 # Safe Read-Only SQLite Explorer MCP Server
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/ccarrott-read-only-sqlite-mcp-server-d6vg77?v=f69f3b746bcf8e0e54051d13bdd77f3a)](https://m8ven.ai/mcp/ccarrott-read-only-sqlite-mcp-server-d6vg77?s=readme)
+
 A safe SQLite database inspection and exploration server built on the Model Context Protocol (MCP) using `FastMCP`.
 
 Enables AI coding assistants and autonomous agents (such as Antigravity, Cursor, and Claude Desktop) to inspect schemas, execute analytical queries, and review data models with strict, multi-layer read-only guarantees.
@@ -13,7 +15,7 @@ To prevent accidental data corruption, unauthorized mutations, or Denial-of-Serv
 | Defense Layer | Mechanism | Protection Scope |
 | --- | --- | --- |
 | **Layer 1: Driver / OS** | Percent-Encoded URI Read-Only Mode (`mode=ro`, `uri=True`) | Blocks write operations at the SQLite VFS / OS file descriptor level. Uses RFC 3986 percent-encoding to prevent delimiter attacks via `#`, `?`, or `%` characters in paths. |
-| **Layer 2: Engine Authorizer** | C Authorizer Hook (`conn.set_authorizer`) | Denies `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `ATTACH`, and `PRAGMA` write actions directly inside the SQLite engine parser before query planning. |
+| **Layer 2: Engine Authorizer** | C Authorizer Hook (`conn.set_authorizer`) | Strict user-query authorizer unconditionally denies `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `ATTACH`, `DETACH`, `VTABLE`, transaction, and `PRAGMA` write actions inside the SQLite parser; a dedicated introspection authorizer handles internal metadata pragmas (accommodating SQLite 3.40.1 behavior). |
 | **Layer 3: Pragma Enforcement** | `PRAGMA query_only = ON;` | Enforces query-only mode at the database engine level upon connection creation. |
 | **Layer 4: Query Sanitizer** | Leading Statement Validation | Enforces that queries strictly begin with `SELECT`, `EXPLAIN`, or `WITH`, and denies stacked or multi-statement query injections. |
 
@@ -29,6 +31,7 @@ To prevent accidental data corruption, unauthorized mutations, or Denial-of-Serv
 ## 2. Capabilities
 
 ### Tools
+All three MCP tools explicitly declare read-only `ToolAnnotations` hints (`readOnlyHint=True`, `destructiveHint=False`, `idempotentHint=True`, `openWorldHint=False`):
 * **`list_tables`**: Lists all user tables, views, and index counts within the SQLite database.
 * **`describe_table`**: Returns detailed column definitions (column name, data type, nullability, defaults, primary key flags), foreign key constraints, indexes, and raw `CREATE TABLE` DDL.
 * **`execute_query`**: Executes read-only SQL queries (`SELECT`, `EXPLAIN`, `WITH`) under strict pagination and formatting limits. Returns formatted JSON along with execution timing.
@@ -125,6 +128,7 @@ The test suite verifies:
 * Multi-statement query injection is denied across all quoting styles (single quotes, double quotes, brackets, and backticks).
 * BLOBs and long strings serialize without errors.
 * Runaway loops and unindexed Cartesian joins trigger virtual machine instruction limit interrupts.
+* All three MCP tools expose explicit read-only `ToolAnnotations` hints over both `FastMCP` and stdio `tools/list`.
 * End-to-end stdio subprocess handshake passes without protocol corruption.
 
 ---

@@ -4,11 +4,17 @@
    [Milestone 0] --------> [Milestone 1] --------> [Milestone 2] --------> [Milestone 3] --------> [Milestone 4]
 Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio & CLI Server      Antigravity E2E
  (Sample DB & Pytest)   (Authorizer & Reader)   (List/Describe/Query)   (Argparse & Stderr)     (Config & Verify)
+                                                                                                         |
+   [Milestone 8] <-------- [Milestone 7] <-------- [Milestone 6] <-------- [Milestone 5] <---------------+
+ CI Matrix & Bounds      Prod Isolation & CI     Layer 1 Test & Quotes   Post-Review Hardening
+         |
+         +---------------> [Milestone 9] --------> [Milestone 10] -------> [Milestone 11]
+                        Win 3.10 & Fencing      Schema, Mem & Split     Annotations & M8ven
 ```
 
 ---
 
-## Milestone 0: Environment & Test Harness Foundation
+## [Completed] Milestone 0: Environment & Test Harness Foundation
 * **Goal:** Set up a clean Python environment, dependency definitions, and mock database generator.
 * **Deliverables:**
   * `pyproject.toml` configured with `mcp>=1.0.0`, `pydantic>=2.0.0`, `pytest`.
@@ -17,7 +23,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 1: Secure SQLite Core Driver
+## [Completed] Milestone 1: Secure SQLite Core Driver
 * **Goal:** Build the native 4-layer security validation system and resilient database engine.
 * **Deliverables:**
   * `security.py` implementing SQLite's native `set_authorizer` callback.
@@ -27,7 +33,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 2: FastMCP Tools, Resources & Prompts
+## [Completed] Milestone 2: FastMCP Tools, Resources & Prompts
 * **Goal:** Implement the formal MCP tool and resource interfaces using `FastMCP`.
 * **Deliverables:**
   * `tools.py`: Implement `list_tables`, `describe_table`, and `execute_query`.
@@ -37,7 +43,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 3: Stdio Server Lifecycle & CLI Wiring
+## [Completed] Milestone 3: Stdio Server Lifecycle & CLI Wiring
 * **Goal:** Wire the MCP server to standard I/O and CLI argument parsing for host execution.
 * **Deliverables:**
   * `server.py` exposing CLI interface (`--db-path`) and booting FastMCP over `stdio`.
@@ -46,7 +52,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 4: Antigravity E2E Integration & Verification
+## [Completed] Milestone 4: Antigravity E2E Integration & Verification
 * **Goal:** Plug the server into Antigravity and verify real AI interaction.
 * **Deliverables:**
   * Working `mcp_config.json` configuration snippet.
@@ -56,7 +62,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 5: Post-Review Hardening & Open-Source Maintenance
+## [Completed] Milestone 5: Post-Review Hardening & Open-Source Maintenance
 * **Goal:** Address external review findings, harden edge cases, and ensure open-source precision.
 * **Deliverables:**
   * URI percent-encoding via `Path.resolve().as_uri() + "?mode=ro"`.
@@ -68,7 +74,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 6: Test Layer Isolation & Full Quote Syntax
+## [Completed] Milestone 6: Test Layer Isolation & Full Quote Syntax
 * **Goal:** Direct layer verification in tests and complete SQLite quoting syntax in statement scanning.
 * **Deliverables:**
   * Direct filesystem-level `mode=ro` testing in `test_db.py`.
@@ -78,7 +84,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 7: Production Connection Isolation, Bracket Grammar & Clean Repo
+## [Completed] Milestone 7: Production Connection Isolation, Bracket Grammar & Clean Repo
 * **Goal:** Production factory connection layer isolation, strict bracket grammar, CI workflow, and repository reorganization.
 * **Deliverables:**
   * Test Layer 1 isolation directly against `DatabaseManager.get_connection()`.
@@ -91,7 +97,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 8: CI Matrix Isolation, Pin Verification & Security Boundary Tightening
+## [Completed] Milestone 8: CI Matrix Isolation, Pin Verification & Security Boundary Tightening
 * **Goal:** Reliable CI matrix execution across Python versions, empirical dependency lower-bound pin, and tightened security documentation.
 * **Deliverables:**
   * CI workflow using `actions/setup-python@v5`, explicit `python --version` logging, and minimum bound test job.
@@ -103,7 +109,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 9: Windows Python 3.10 Engine Compatibility & Dynamic Prompt Fencing
+## [Completed] Milestone 9: Windows Python 3.10 Engine Compatibility & Dynamic Prompt Fencing
 * **Goal:** Full multi-version CI green status (Python 3.10–3.13) and robust dynamic code fencing in DBA prompt generation.
 * **Deliverables:**
   * Resolved SQLite 3.40.1 bundled engine pragma `SQLITE_UPDATE` on `sqlite_master` authorizer callback in `security.py`.
@@ -115,7 +121,7 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
 
 ---
 
-## Milestone 10: Schema Introspection Hardening, Memory DoS Defense & Authorizer Separation
+## [Completed] Milestone 10: Schema Introspection Hardening, Memory DoS Defense & Authorizer Separation
 * **Goal:** Resolve schema introspection validation failures, implement in-engine value size limits against memory exhaustion, separate user query vs metadata authorizers, and refine prompt argument escaping.
 * **Deliverables:**
   * `ForeignKeyInfo.to_column` made `Optional[str]` to support implicit primary key references (`REFERENCES parent`).
@@ -128,3 +134,15 @@ Env & Test Fixtures     Native Security Driver    FastMCP Tools & Res.    Stdio 
   * Prompt single-quote escaping in `focus` argument.
   * Updated `SECURITY.md`, `TESTING.md`, `README.md`, and `mcp_config.json`.
 * **Completion Criteria:** All 88 automated tests pass across test suites with 91% coverage.
+
+---
+
+## [Completed] Milestone 11: MCP Tool Annotations, M8ven Trust Index Listing & Repo Polish
+* **Goal:** Add explicit MCP tool annotations required by OpenAI app directory / M8ven Trust Index, publish M8ven ownership badge, harden authorizer virtual-table/transaction coverage, and resolve stale documentation/gitignore items.
+* **Deliverables:**
+  * Added explicit `ToolAnnotations` (`readOnlyHint=True`, `destructiveHint=False`, `idempotentHint=True`, `openWorldHint=False`) to `list_tables`, `describe_table`, and `execute_query` in `src/sqlite_mcp/tools.py`.
+  * Audited `execute_query` write-safety across `WITH`, `EXPLAIN`, `PRAGMA`, `load_extension`, `fts3_tokenizer`, virtual tables, and transactions, adding `SQLITE_CREATE_VTABLE`, `SQLITE_DROP_VTABLE`, and `SQLITE_TRANSACTION` to `FORBIDDEN_ACTIONS` in `src/sqlite_mcp/security.py`.
+  * Added integration tests verifying `ToolAnnotations` on `FastMCP.list_tools()` and live stdio JSON-RPC `tools/list`, plus virtual table and transaction authorizer tests.
+  * Added M8ven ownership badge to `README.md` (`?v=` proof token preserved verbatim).
+  * Updated `.gitignore` (`.venv*/`), `docs/PLAN.md`, `docs/TESTING.md`, `docs/SCENARIO.md`, `SECURITY.md`, `README.md`, `GEMINI.md`, and `docs/HISTORY.md`.
+* **Completion Criteria:** All 94 automated tests pass cleanly in both `.venv` (Python 3.12) and `.venv310` (Python 3.10).

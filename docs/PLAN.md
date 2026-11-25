@@ -49,7 +49,7 @@ Rather than maintaining a custom regex or complex AST parser, `security.py` uses
 ```python
 import sqlite3
 
-# Native SQLite Action Codes to DENY
+# Native SQLite Action Codes to DENY (excerpt — see src/sqlite_mcp/security.py for full list)
 FORBIDDEN_ACTIONS = {
     sqlite3.SQLITE_INSERT,
     sqlite3.SQLITE_UPDATE,
@@ -60,18 +60,32 @@ FORBIDDEN_ACTIONS = {
     sqlite3.SQLITE_CREATE_TABLE,
     sqlite3.SQLITE_CREATE_INDEX,
     sqlite3.SQLITE_CREATE_VIEW,
+    sqlite3.SQLITE_CREATE_VTABLE,
+    sqlite3.SQLITE_DROP_VTABLE,
     sqlite3.SQLITE_ALTER_TABLE,
-    sqlite3.SQLITE_PRAGMA,
     sqlite3.SQLITE_ATTACH,
     sqlite3.SQLITE_DETACH,
+    sqlite3.SQLITE_REINDEX,
+    sqlite3.SQLITE_ANALYZE,
+    sqlite3.SQLITE_TRANSACTION,
+    sqlite3.SQLITE_SAVEPOINT,
 }
 
 def read_only_authorizer(action_code, arg1, arg2, db_name, trigger_name):
-    """Native C-level authorizer callback for SQLite execution engine."""
+    """Strict native C-level authorizer callback for user query execution."""
     if action_code in FORBIDDEN_ACTIONS:
+        return sqlite3.SQLITE_DENY
+    if action_code == sqlite3.SQLITE_PRAGMA:
+        pragma_name = (arg1 or "").lower()
+        if pragma_name in SAFE_READ_TABLE_PRAGMAS:
+            return sqlite3.SQLITE_OK
+        if pragma_name in SAFE_READ_GLOBAL_PRAGMAS and arg2 is None:
+            return sqlite3.SQLITE_OK
         return sqlite3.SQLITE_DENY
     return sqlite3.SQLITE_OK
 ```
+
+(`introspection_authorizer` wraps `read_only_authorizer` strictly for internal schema queries to accommodate an internal `SQLITE_UPDATE` callback on `sqlite_master` observed on SQLite 3.40.1.)
 
 ### 2.2 Connection Management & Resilience (`db.py`)
 * Connection setup: `sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True, timeout=10.0)`.
@@ -109,7 +123,7 @@ Using `from mcp.server.fastmcp import FastMCP`:
 
 ### Phase 1: Environment & Test Database Fixture
 - [x] Initialize Python project with `pyproject.toml` (dependencies: `mcp>=1.0.0,<2.0.0`, `pydantic>=2.0.0`, `pytest`).
-- [x] Create test SQLite generator (`tests/fixtures/create_sample_db.py`) populated with tables (`users`, `orders`, `products`), BLOB data, foreign keys, and indexes.
+- [x] Create test SQLite generator (`tests/fixtures/create_sample_db.py`) populated with tables (`users`, `orders`, `products`), BLOB data, foreign keys, and indexes (extended in Milestone 10 with `audit_logs` implicit PK FK and expression index).
 
 ### Phase 2: Security & Engine Driver Implementation
 - [x] Develop `security.py`: Native `set_authorizer` callback and statement prefix checker.
@@ -162,3 +176,16 @@ Using `from mcp.server.fastmcp import FastMCP`:
 - [x] Implement dynamic multi-backtick fencing in `src/sqlite_mcp/prompts.py`.
 - [x] Add dynamic fence test `test_analyze_schema_prompt_dynamic_fence_with_backticks` in `tests/test_mcp_tools.py`.
 - [x] Clarify structural formatting vs semantic injection in `SECURITY.md`.
+
+### Phase 10: Schema Introspection Hardening, Memory DoS Defense & Authorizer Separation
+- [x] Support implicit PK foreign keys (`ForeignKeyInfo.to_column: Optional[str]`) and expression/rowid index labels (`"<expression>"`, `"<rowid>"`).
+- [x] Add `audit_logs` and expression index fixtures to `tests/fixtures/create_sample_db.py` and case-insensitive `COLLATE NOCASE` lookup in `describe_table`.
+- [x] Enforce memory value limit (`SQLITE_MAX_VALUE_LENGTH` via `conn.setlimit(SQLITE_LIMIT_LENGTH, ...)`) on Python 3.11+ and document Python 3.10 boundary.
+- [x] Separate strict user-query `read_only_authorizer` from `introspection_authorizer` (`for_introspection=True`), and return clear instruction-limit abort errors.
+- [x] Escape single quotes in prompt `focus` parameter and align `SECURITY.md`, `TESTING.md`, `README.md`, and `mcp_config.json`.
+
+### Phase 11: MCP Tool Annotations, M8ven Verification & Repo Polish
+- [x] Add explicit MCP `ToolAnnotations` (`readOnlyHint=True`, `destructiveHint=False`, `idempotentHint=True`, `openWorldHint=False`) to `list_tables`, `describe_table`, and `execute_query`.
+- [x] Verify `ToolAnnotations` presence via both `FastMCP.list_tools()` and live stdio `tools/list`.
+- [x] Add `SQLITE_CREATE_VTABLE`, `SQLITE_DROP_VTABLE`, and `SQLITE_TRANSACTION` to `FORBIDDEN_ACTIONS` in `src/sqlite_mcp/security.py` with unit tests.
+- [x] Add M8ven ownership badge to `README.md`, ignore `.venv*/` in `.gitignore`, and resolve stale doc references.

@@ -75,10 +75,18 @@ class TestStdioSubprocessServer:
 
             tools_resp_line = proc.stdout.readline()
             tools_data = json.loads(tools_resp_line)
-            tool_names = [t["name"] for t in tools_data["result"]["tools"]]
+            tools_list = tools_data["result"]["tools"]
+            tool_names = [t["name"] for t in tools_list]
             assert "list_tables" in tool_names
             assert "describe_table" in tool_names
             assert "execute_query" in tool_names
+            for tool in tools_list:
+                assert tool.get("annotations") == {
+                    "readOnlyHint": True,
+                    "destructiveHint": False,
+                    "idempotentHint": True,
+                    "openWorldHint": False,
+                }
 
             # 4. tools/call request for list_tables
             call_req = {

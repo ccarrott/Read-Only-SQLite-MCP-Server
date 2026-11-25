@@ -7,11 +7,20 @@ from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from sqlite_mcp.db import DatabaseManager, DEFAULT_ROW_LIMIT
 from sqlite_mcp.security import SecurityError
 
 # Concrete primitive types permitted in serialized SQLite result sets
 CellValue = Union[str, int, float, bool, None]
+
+# Declarative MCP hints shared across all read-only inspection and query tools
+READ_ONLY_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=False,
+)
 
 
 class TableInfo(BaseModel):
@@ -82,6 +91,7 @@ def register_tools(mcp: FastMCP, db_manager: DatabaseManager) -> None:
     @mcp.tool(
         name="list_tables",
         description="Lists all tables and views in the SQLite database, including index counts.",
+        annotations=READ_ONLY_ANNOTATIONS,
     )
     def list_tables(include_internal: bool = False) -> ListTablesResponse:
         """List all tables and views in the connected SQLite database.
@@ -115,6 +125,7 @@ def register_tools(mcp: FastMCP, db_manager: DatabaseManager) -> None:
     @mcp.tool(
         name="describe_table",
         description="Provides column definitions, primary keys, foreign keys, indexes, and raw DDL for a table or view.",
+        annotations=READ_ONLY_ANNOTATIONS,
     )
     def describe_table(table_name: str) -> DescribeTableResponse:
         """Inspects table schema details, constraints, indexes, and DDL.
@@ -143,6 +154,7 @@ def register_tools(mcp: FastMCP, db_manager: DatabaseManager) -> None:
     @mcp.tool(
         name="execute_query",
         description="Safely executes a read-only SQL query (SELECT, EXPLAIN, WITH) with automatic row limiting and data sanitization.",
+        annotations=READ_ONLY_ANNOTATIONS,
     )
     def execute_query(query: str, max_rows: int = DEFAULT_ROW_LIMIT) -> QueryExecutionResponse:
         """Executes a read-only SQL statement against the SQLite database.

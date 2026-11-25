@@ -21,6 +21,17 @@ class TestFastMCPTools:
     """Verifies tool calling behavior and JSON responses via FastMCP."""
 
     @pytest.mark.anyio
+    async def test_all_tools_expose_read_only_annotations(self, mcp_server: FastMCP) -> None:
+        tools = await mcp_server.list_tools()
+        assert {t.name for t in tools} == {"list_tables", "describe_table", "execute_query"}
+        for tool in tools:
+            assert tool.annotations is not None, f"{tool.name} missing ToolAnnotations"
+            assert tool.annotations.readOnlyHint is True
+            assert tool.annotations.destructiveHint is False
+            assert tool.annotations.idempotentHint is True
+            assert tool.annotations.openWorldHint is False
+
+    @pytest.mark.anyio
     async def test_list_tables_tool(self, mcp_server: FastMCP) -> None:
         contents, result = await mcp_server.call_tool("list_tables", {})
         assert result["success"] is True

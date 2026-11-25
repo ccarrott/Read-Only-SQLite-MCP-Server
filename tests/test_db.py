@@ -127,7 +127,7 @@ class TestDatabaseManagerExecution:
         assert res_capped["limit_applied"] == MAX_ROW_LIMIT
         assert res_capped["is_truncated"] is True
 
-    def test_progress_handler_timeout(self, db_manager: DatabaseManager) -> None:
+    def test_progress_handler_instruction_limit(self, db_manager: DatabaseManager) -> None:
         # Configure a manager with a very low instruction limit to simulate runaway query
         strict_mgr = DatabaseManager(db_manager.db_path, max_instructions=5000)
         with pytest.raises(sqlite3.OperationalError) as exc_info:

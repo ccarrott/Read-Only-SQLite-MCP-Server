@@ -17,6 +17,7 @@ This project creates a **Safe Read-Only SQLite Explorer MCP Server**. Built usin
 ## 3. Key Functional Features
 
 ### 3.1 Core Tools (Callable by AI Agent)
+All three tools expose explicit MCP `ToolAnnotations` hints (`readOnlyHint=True`, `destructiveHint=False`, `idempotentHint=True`, `openWorldHint=False`).
 1. **`list_tables`**
    * Returns a clean JSON list of all user tables, views, and index counts within the target SQLite database.
    * Excludes internal SQLite metadata tables (e.g., `sqlite_sequence`, `sqlite_stat1`) unless explicitly requested.
@@ -49,7 +50,7 @@ This project creates a **Safe Read-Only SQLite Explorer MCP Server**. Built usin
 
 2. **Data & Context Hygiene:**
    * **BLOB & Binary Handling:** Convert raw `bytes` data to a safe representation (`<BLOB N bytes>`) to prevent JSON serialization crashes (`TypeError: Object of type bytes is not JSON serializable`).
-   * **Result Ceiling:** Hard limit of 1,000 rows max. Text cells capped at 500 characters.
+   * **Result & Value Ceilings:** Hard limit of 1,000 rows max. Text cells capped at 500 characters. On Python 3.11+, `conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, ...)` caps string/blob allocations (`SQLITE_MAX_VALUE_LENGTH`, default 10 MB).
 
 3. **Stdio Protocol Hygiene:**
    * `stdout` is reserved strictly for raw MCP JSON-RPC protocol packets.
